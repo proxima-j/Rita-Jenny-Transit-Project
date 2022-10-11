@@ -1,0 +1,83 @@
+---
+title: "FP2: One visualization"
+author: "Pippa, Jenny, Jordanella, Rita"
+date: '2022-09-29'
+output: 
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: simplex
+    df_print: paged
+    code_download: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,message=FALSE,echo=FALSE,warning=FALSE}
+library(dbplyr)
+library(tidyverse)
+library(lubridate)
+
+
+data <- read_csv("bus-stops-Oct-2017.csv")
+
+library(readr)
+ridership<- read_csv("ridership-route-day-Jan2014-Oct2017.csv")
+
+gas <- read_csv("FP1/Rita-Li-FP1_datasets/Weekly_Minnesota_Regular_Conventional_Retail_Gasoline_Prices.csv", skip = 4)
+```
+# Introduction
+Gas price, a term that would be directly related to transportation. Ridership, a term very closely related to transportation but not gas price. Bridged together by transportation, indicating that there might exist some influence between the two terms. Thus, we decided to investigate the relationship between gas price and ridership over time, which might help the bus company to make their future decision when the gas price was fluent.
+
+
+# Data Source and cleaning process
+
+`Weekly_Minnesota_Regular_Conventional_Retail_Gasoline_Prices.cvs`: This is a dataset of weekly Minnesota regular conventional retail gasoline price. The data is collected and cleaned by [U.S. Energy Information Administration ](https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMRU_PTE_SMN_DPG&f=W).
+
+`ridership-route-day-Jan2014-Oct2017.csv`: This is a dataset of total riders of each bus route in Minnesota from January 2014 to October 2017. The data is provided by Metro Transit.
+
+```{r, warning=FALSE}
+gas_fixed <- gas %>% 
+  mutate(date = as.Date(`Week of`, "%m/%d/%Y")) %>% 
+  mutate(gas_price = `Weekly Minnesota Regular Conventional Retail Gasoline Prices Dollars per Gallon`) %>% 
+  select(date, gas_price)
+```
+
+# Data Visualization
+```{r, fig.width=7,fig.height=3,message=FALSE}
+coef <- 60
+ridership %>% 
+  filter(Route == 63) %>% 
+  mutate(date = as.Date(dtDate)) %>%
+  left_join(gas_fixed, by = "date") %>% 
+  mutate(month = month(date),year = year(date)) %>% 
+  group_by(year,month) %>% 
+  summarise(riders = sum(Total_Riders)/1000, gas_price = mean(gas_price,na.rm = TRUE), date = min(date)) %>% 
+  ggplot(aes(x = date))+
+  geom_line(aes(y = gas_price),color = "#9F2C2C")+
+  geom_line(aes(y = riders/coef),color = "#3F4345")+ 
+  scale_y_continuous(
+    name = "Gas Price($)",
+    sec.axis = sec_axis(trans = ~.*coef, name="Total Riders(thousands)"))+
+  labs(title = "Change of Gas Price and Total Rides of Route 63 over time",
+       subtitle = "From Jan 2014 to Oct 2017")+
+  geom_text(aes(x = date("2017-06-01"), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
+  geom_text(aes(x = date("2017-06-01"), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
+  theme_minimal()+
+  theme(axis.title.y.left = element_text(color = "#9F2C2C",size = 12),
+        axis.title.y.right = element_text(color = "#3F4345",size = 12),
+        axis.text.y.left = element_text(color = "#9F2C2C",size = 8),
+        axis.text.y.right = element_text(color = "#3F4345",size = 8),
+        axis.title.x.bottom = element_blank(),
+        plot.title = element_text(color = "#006bb3",size = 14),
+        plot.subtitle = element_text(color = "#006bb3"))
+```
+
+
+This plot shows the change of gas price and total riders on Route 63 over time from Jan 2014 to Oct 2017. The red line with its legend on the left side represents the gas price whereas the black line with its legend on the right side represents the ridership. It is based on the data collected from 2014 through 2017. Though a little outdated but still worth studying. 
+
+Starting from 2015, the pattern between the two lines became similar. Notice that, the red line, which represents the ridership almost always changes a little slower than the black line, the gas price. Such cases might indicate that the public needs time to make their discussion and react to the fluctuation of the gas price. 2016 and 2014 are two outliers lying in the graph. The dramatic gap shrink between the two lines during 2014 might reflect the policy of the state trying to promote the situation for public transportation. While in 2016, the overlap of the two lines seems to be a result of impact outside the transportation system, such as the decreasing price of the private car.
+
+The bus company would be one of the targets for this visualization. As mentioned before, such visualization might help predict the total riders in public transportation based on the gas price. Therefore, the company is able to utilize that data to adjust their schedule and frequency of the bus. For example, may be increase the frequency when the gas price increase.
