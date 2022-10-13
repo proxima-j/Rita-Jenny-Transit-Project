@@ -1,0 +1,77 @@
+---
+title: "API DEMO"
+output: html_document
+date: "2022-10-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# library(nytimes)
+# 
+# nytimes_key<-'UAwxyJYt17WXw4ZklDcOM3XZDPFhbnvA'
+# 
+# Sys.setenv(NYTIMES=nytimes_key)
+```
+
+```{r, by hand}
+library(httr)
+library(tidyjson)
+library(urltools)
+```
+
+```{r}
+#no arguement
+url<- "https://api.nytimes.com/svc/search/v2/articlesearch.json"
+#handle the case that contains the unusual characters
+url <- param_set(url, "q", url_encode("gemerate"))
+url<- param_set(url, "api-key", URLencode(nytimes_key))
+```
+
+# We have made our API calls and get the response back
+```{r}
+#Connect with other machine
+
+#GET is a function of how to talk to other machine
+resp <- GET(url)
+# wait for 1 sec, avoid the service block you
+Sys.sleep(1)
+```
+
+
+# Get tge javascript dadta
+```{r}
+#show text in the file
+js<-content(resp, "text")
+js
+```
+
+```{r}
+response_js <- enter_object(js, "response")
+strtrim(response_js, 100)
+```
+
+```{r}
+# only include docs
+docs_js <- enter_object(response_js, "docs")
+strtrim(response_js, 100)
+```
+
+```{r}
+#took in a string and output a dataframe
+result_df <- gather_array(docs_js)
+```
+
+```{r}
+#simplify cols
+#specific the piece we what to get out from the previous dataframe
+final_df<- spread_values(result_df,
+                         web_url=jstring("web_url"),
+                         pub_date=jstring("pub_date"),
+                         headline=jstring("snippet"))
+```
+
+
+
