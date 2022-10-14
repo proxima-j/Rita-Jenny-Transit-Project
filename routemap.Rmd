@@ -1,0 +1,99 @@
+---
+title: "Converting Shape File"
+author: "Rita Li"
+date: '2022-10-14'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries}
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(lubridate)
+library(ggplot2)
+library(stringr)
+# packages for map
+library(rjson)
+library(geojsonsf)
+library(sf)
+
+buss <- read.csv("shapedata/BetterBusStops.csv")
+
+map <- geojson_sf("shapedata/TransitRoutes.json",expand_geometries = TRUE)
+
+bus <- geojson_sf("shapedata/BetterBusStops.json",expand_geometries = TRUE)
+```
+
+```{r}
+map %>%
+  filter(RouteClass == "CoreLoc") %>% 
+  ggplot() + 
+  geom_sf(aes(geometry = geometry, color = route))
+  
+```
+
+
+## Convert geometry from UTM Cooridnate system to latitude and longitude.
+
+```{r}
+library(terra)
+x <- runif(10, -10000, 10000)   
+y <- runif(10, -10000, 10000)   
+points <- cbind(x, y)
+
+geometry <-map$geometry
+
+point <- geometry[[1]][[2]]
+
+# code for converting UTM to lat and long for a single point or many points
+v <- vect(point,type = "point", crs="+proj=utm +zone=15 +datum=NAD83  +units=m")
+
+p <- geom(project(v, "+proj=longlat +datum=NAD83"))[, c("x", "y")]
+
+# code for converting tibble of points to multilinestring
+my_tible %>% 
+  st_as_sf( coords = c("X", "Y")) %>% 
+  group_by(ID) %>% 
+  summarize() %>%
+  st_cast("MULTILINESTRING") %>% 
+  st_set_crs("+init=epsg:2154") %>% 
+  st_transform(crs="+proj=longlat +datum=WGS84")
+```
+
+## Trail for one route
+```{r}
+
+my_tible <- tibble("ID" = c("A","A","A","B","B", "C","C") , X=  c(647851,647875,647875,647766,647766,647826,647822) , 
+               Y=c(6859335,6859318,6859319,6859028,6859030,6859314,6859316) )
+
+my_tible <- my_tible %>% 
+  st_as_sf( coords = c("X", "Y")) %>% 
+  group_by(ID) %>% 
+  summarize() %>%
+  st_cast("MULTILINESTRING") %>% 
+  st_set_crs("+init=epsg:2154") %>% 
+  st_transform(crs="+proj=longlat +datum=WGS84")
+
+newmap <- map %>% 
+  st_set_crs("+proj=utm +zone=15 +datum=NAD83  +units=m") %>% 
+  st_transform(crs="+proj=longlat +datum=NAD83") %>% 
+  filter(filter(RouteClass == "CoreLoc"))
+```
+
+
+```{r}
+library(leaflet)
+pal <- colorNumeric(
+  palette = "Reds",
+  domain = newmap$route
+)
+
+leaflet(newmap) %>% 
+  addTiles() %>%
+  addPolylines()
+```

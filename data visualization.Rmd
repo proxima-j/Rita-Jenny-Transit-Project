@@ -24,9 +24,20 @@ library(lubridate)
 data <- read_csv("bus-stops-Oct-2017.csv")
 
 library(readr)
-ridership<- read_csv("ridership-route-day-Jan2014-Oct2017.csv")
+ridership<- read_csv("ridershipdata/ridership-route-day-Jan2014-Oct2017.csv")
 
-gas <- read_csv("FP1/Rita-Li-FP1_datasets/Weekly_Minnesota_Regular_Conventional_Retail_Gasoline_Prices.csv", skip = 4)
+gas <- read_csv("ridershipdata/Weekly_Minnesota_Regular_Conventional_Retail_Gasoline_Prices.csv", skip = 4)
+```
+
+```{r}
+gas %>% 
+  mutate(price = `Weekly Minnesota Regular Conventional Retail Gasoline Prices Dollars per Gallon`,
+         date = as.Date(`Week of`, "%m/%d/%Y")) %>% 
+  filter(year(date)>=2014) %>% 
+  filter(year(date)<2018) %>% 
+  ggplot(aes(x = date, y = price))+
+  geom_line()+
+  labs(title = "Change of weekly gas price over time in Minnesota")
 ```
 # Introduction
 Gas price, a term that would be directly related to transportation. Ridership, a term very closely related to transportation but not gas price. Bridged together by transportation, indicating that there might exist some influence between the two terms. Thus, we decided to investigate the relationship between gas price and ridership over time, which might help the bus company to make their future decision when the gas price was fluent.
