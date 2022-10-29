@@ -17,8 +17,7 @@ ui <- fluidPage(
 
     # Application title
     titlePanel("Map of path travelled by ship"),
-
-  
+   
 
         # Show a plot of the generated distribution
         mainPanel(
@@ -33,19 +32,26 @@ ui <- fluidPage(
 
 
 server <- function(input, output) {
+  
+  
       #creat ship dropdown list
       output$ship_select <- renderUI({
         #we want the ship name only appears once
         selectInput("pick_ship","choose a ship:", choices= c(unique(ais2022_01$MMSI)))
       })
+     
       #create map
       output$locations <- renderLeaflet({
+       
         #make it only showed the ship selected
         filtered=subset(ais2022_01, ais2022_01$MMSI==input$pick_ship)
         #setup map
-        locations<-leaflet(data = filtered)
-        locations<- addTiles(locations)
-        
+        locations<-leaflet(data = filtered) %>%  
+          addProviderTiles("Stamen.Toner") %>% 
+          addProviderTiles("CartoDB.Positron",
+                           options = providerTileOptions(opacity = 0.35))
+         
+       
         #also show the travel direction(increasing th opacity)
         rows<-nrow(filtered)
         x<-1/rows
