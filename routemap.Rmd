@@ -21,8 +21,11 @@ library(stringr)
 library(rjson)
 library(geojsonsf)
 library(sf)
+library(rgdal)
 
 buss <- read.csv("shapedata/BetterBusStops.csv")
+
+busstops <- geojson_sf("shapedata/TransitStopsItineraryArchive.json")
 
 map <- geojson_sf("shapedata/TransitRoutes.json",expand_geometries = TRUE)
 
@@ -83,6 +86,9 @@ newmap <- map %>%
   st_set_crs("+proj=utm +zone=15 +datum=NAD83  +units=m") %>% 
   st_transform(crs="+proj=longlat +datum=NAD83") %>% 
   filter(filter(RouteClass == "CoreLoc"))
+
+writeOGR(newmap, "test_geojson", layer="meuse", driver="GeoJSON")
+
 ```
 
 
@@ -97,3 +103,50 @@ leaflet(newmap) %>%
   addTiles() %>%
   addPolylines()
 ```
+
+
+
+
+
+```{r}
+stops <- read_csv("ridershipdata/TransitStopsBoardingsAndAlightings2021.csv")
+```
+
+```{r}
+pca_stops <- stops %>% 
+  select(Route, Site_id) %>%
+  unique() %>% 
+  group_by(Site_id) %>% 
+  mutate(count = n()) %>% 
+  filter(count > 1) %>% 
+  select(-count) %>% 
+  ungroup() %>% 
+  mutate(value = 1) %>% 
+  complete(Route, Site_id) %>% 
+  mutate(value = ifelse(is.na(value),0,value)) %>% 
+  pivot_wider(names_from = Site_id, values_from = value)
+```
+```{r}
+pca_stops <- pca_stops %>% select(-Route)
+pca_out <- prcomp(pca_stops, center = TRUE, scale = TRUE)
+
+
+pca_scores <- pca_out$x
+pca_loadings <- pca_out$rotation
+
+pca_scores %>% 
+  as.data.frame() %>%
+  ggplot(aes(x = PC1, y = PC2))+
+  geom_point()
+```
+
+
+```{r}
+pca_loadings %>%
+  as.data.frame() %>%
+  mutate(index = seq_len(nrow(pca_loadings))) %>%
+  ggplot(aes(x = index, y = PC1)) + 
+  geom_point() + 
+  labs(xlab = 'BusStops', ylab = 'Loadings for PC1') + 
+  theme_minimal()
+````
