@@ -1,0 +1,28 @@
+---
+title: "data visual"
+author: "Jenny Li"
+date: "2022-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#load library
+library(shiny)
+library(readr)
+library(leaflet)
+library(tidyverse)
+library(dplyr)
+#load data
+ais2022_01 <- read_csv("AIS_2022_01_01.csv") %>% 
+  select(c("MMSI", "LON", "LAT")) %>% 
+  filter(MMSI %in% c("368084090","368140160","366941830","316005971","316004054"
+                     ,"366863870","368118150","338379253","368195460","367614790"))
+
+write.csv(ais2022_01, file="ais2022_01.csv")
+
+```
+
