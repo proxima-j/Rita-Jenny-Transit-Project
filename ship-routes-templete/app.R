@@ -47,11 +47,11 @@ server <- function(input, output) {
         filtered=subset(ais2022_01, ais2022_01$MMSI==input$pick_ship)
         #setup map
         locations<-leaflet(data = filtered) %>%  
-          addProviderTiles("Stamen.Toner") %>% 
+          addProviderTiles("Stamen.Toner") %>%
           addProviderTiles("CartoDB.Positron",
                            options = providerTileOptions(opacity = 0.35))
          
-       
+
         #also show the travel direction(increasing th opacity)
         rows<-nrow(filtered)
         x<-1/rows

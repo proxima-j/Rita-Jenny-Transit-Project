@@ -5,9 +5,9 @@ account: jennylipro
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 7457893
-bundleId: 6453351
+bundleId: 6455221
 url: https://jennylipro.shinyapps.io/ship-routes-templete/
-when: 1667029351.51349
-lastSyncTime: 1667029351.51349
+when: 1667098808.53682
+lastSyncTime: 1667098808.53682
 asMultiple: FALSE
 asStatic: FALSE
