@@ -126,6 +126,8 @@ pca_stops <- stops %>%
   mutate(value = ifelse(is.na(value),0,value)) %>% 
   pivot_wider(names_from = Site_id, values_from = value)
 ```
+
+Potential Variables for clustering: 
 ```{r}
 pca_stops <- pca_stops %>% select(-Route)
 pca_out <- prcomp(pca_stops, center = TRUE, scale = TRUE)
@@ -149,4 +151,23 @@ pca_loadings %>%
   geom_point() + 
   labs(xlab = 'BusStops', ylab = 'Loadings for PC1') + 
   theme_minimal()
-````
+```
+
+
+```{r}
+# extract variance of each PC
+pca_var <- (pca_out$sdev)^2
+
+# calculate proportion of variance explained
+total_var <- sum(pca_var)
+pve <- pca_var/total_var
+
+# scree plot
+pve %>%
+  as.data.frame() %>%
+  mutate(index = seq_len(length(pca_var))) %>%
+  ggplot(aes(x = index, y = pve)) + 
+  geom_point() + 
+  geom_line() + 
+  theme_minimal()
+```
