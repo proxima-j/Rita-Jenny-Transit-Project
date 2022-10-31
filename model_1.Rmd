@@ -1,0 +1,67 @@
+---
+title: "Longitudinal Studies of Ridership and Gas Price"
+author: "Rita Li"
+date: '2022-10-31'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r,message=FALSE,echo=FALSE,warning=FALSE}
+library(dbplyr)
+library(tidyverse)
+library(lubridate)
+library(readr)
+# for geeM studies
+library(geeM)
+library(tidyr)
+
+ridership<- read_csv("ridershipdata/ridership-route-day-Jan2014-Oct2017.csv")
+
+gas <- read_csv("ridershipdata/Weekly_Minnesota_Regular_Conventional_Retail_Gasoline_Prices.csv", skip = 4)
+```
+
+
+```{r, warning=FALSE}
+gas_fixed <- gas %>% 
+  mutate(date = as.Date(`Week of`, "%m/%d/%Y")) %>% 
+  mutate(gas_price = `Weekly Minnesota Regular Conventional Retail Gasoline Prices Dollars per Gallon`) %>% 
+  select(date, gas_price) %>% 
+  mutate(month = month(date),year = year(date)) %>% 
+  group_by(year,month) %>% 
+  summarise(gas_price = mean(gas_price,na.rm = TRUE), date = min(date))
+```
+
+# Join Datasets
+```{r, fig.width=7,fig.height=3,message=FALSE}
+rider_gas_complete <- ridership %>% 
+  mutate(date = as.Date(dtDate)) %>%
+  mutate(month = month(date),year = year(date)) %>% 
+  group_by(Route,year,month) %>% 
+  summarise(riders = sum(Total_Riders)/1000,RouteType,date = min(date)) %>% 
+  unique() %>% 
+  right_join(gas_fixed, by = c("month","year")) %>% 
+  ungroup()
+  
+
+rider_gas_complete %>% 
+  select(gas_price, date.x) %>% 
+  unique() %>% 
+  mutate(gas_last_month = lag(gas_price, 1),
+         change_from_last_month = gas_price-gas_last_month,
+         per_change = change_from_last_month/gas_last_month,
+         change = ifelse(per_change > 0, TRUE, FALSE)) %>% 
+  ggplot(aes(x = date.x, y = gas_price, color = change))+
+  geom_point()
+```
+
+# Fit model
+```{r}
+rider_gas_complete %>% drop_na(riders, RouteType, gas_price) %>%
+  filter(year == 2014 & month < 5) %>% 
+  geem(riders ~ RouteType, data = ., id = Route, corstr = 'ar1') %>% #independent working correlation
+  summary()
+```
