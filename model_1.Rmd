@@ -19,6 +19,12 @@ library(readr)
 library(geeM)
 library(tidyr)
 
+library(dplyr)
+library(broom)
+library(ggplot2)
+library(stringr)
+library(splines)
+
 ridership<- read_csv("ridershipdata/ridership-route-day-Jan2014-Oct2017.csv")
 
 gas <- read_csv("ridershipdata/Weekly_Minnesota_Regular_Conventional_Retail_Gasoline_Prices.csv", skip = 4)
@@ -32,7 +38,7 @@ gas_fixed <- gas %>%
   select(date, gas_price) %>% 
   mutate(month = month(date),year = year(date)) %>% 
   group_by(year,month) %>% 
-  summarise(gas_price = mean(gas_price,na.rm = TRUE), date = min(date))
+  summarise(gas_price = mean(gas_price,na.rm = TRUE))
 ```
 
 # Join Datasets
@@ -48,20 +54,103 @@ rider_gas_complete <- ridership %>%
   
 
 rider_gas_complete %>% 
-  select(gas_price, date.x) %>% 
-  unique() %>% 
+  group_by(Route) %>% 
   mutate(gas_last_month = lag(gas_price, 1),
          change_from_last_month = gas_price-gas_last_month,
          per_change = change_from_last_month/gas_last_month,
          change = ifelse(per_change > 0, TRUE, FALSE)) %>% 
-  ggplot(aes(x = date.x, y = gas_price, color = change))+
-  geom_point()
+  mutate(ride_last_month = lag(riders, 1),
+         ride_change = riders-ride_last_month,
+         ride_per_change = ride_change/ride_last_month,
+         rchange = ifelse(per_change > 0, TRUE, FALSE)) %>%
+  filter(Route == 63) %>% 
+  ggplot(aes(x = date, y = ride_per_change))+
+  geom_line()+
+  geom_line(aes(y = gas_price/5-1),color = "blue")
 ```
 
 # Fit model
 ```{r}
-rider_gas_complete %>% drop_na(riders, RouteType, gas_price) %>%
-  filter(year == 2014 & month < 5) %>% 
-  geem(riders ~ RouteType, data = ., id = Route, corstr = 'ar1') %>% #independent working correlation
+ride63 <- rider_gas_complete %>%
+  drop_na(riders, date) %>% 
+  mutate(date_num = year + (month-1)/12) %>% 
+  group_by(Route) %>% 
+  mutate(gas_last_month = lag(gas_price, 1),
+         change_from_last_month = gas_price-gas_last_month,
+         per_change = change_from_last_month/gas_last_month,
+         change = ifelse(per_change > 0, TRUE, FALSE)) %>% 
+  ungroup()
+
+lm.season <- lm(riders ~ factor(month), data = ride63)
+
+ride63%>% 
+  filter(Route == 84|Route == 63) %>% 
+  ggplot(aes(x = date, y = riders, color = factor(Route))) + 
+  geom_line()+
+  geom_line(aes(y = gas_price*100),color = "black")
+
+
+lm(riders ~ gas_price+factor(Route), data = ride63) %>% 
   summary()
+
+ride63 %>% 
+  geem(riders ~ gas_price, data = ., id = Route, corstr = "ar1") %>% 
+  summary()
+
+gas <- ride63 %>% 
+  filter(Route == 63)
+
+r <- ride63 %>% 
+  group_by(Route) %>% 
+  mutate(schedules = n()) %>%
+  ungroup() %>% 
+  filter(schedules == max(schedules))
 ```
+
+
+
+```{r}
+routes <- r$Route %>% unique()
+gasp <- gas$gas_price
+
+betas <- c()
+ses <- c()
+tstats <- c()
+pvals <- c()
+
+# loop through all routes
+a <- 0
+
+for(i in routes){
+  rides <- r %>% 
+    filter(Route == i)
+  ride <- rides$riders
+  
+  #fit the linear model
+  mod <- lm(ride ~ gasp)
+  # get coefficient information
+  coefinfo <- tidy(mod)
+  
+  a <- a+1
+  # record estimate, SE, test stat, and p-value
+  betas[a] <- coefinfo$estimate[2]
+  ses[a] <- coefinfo$std.error[2]
+  tstats[a] <- coefinfo$statistic[2]
+  pvals[a] <- coefinfo$p.value[2]
+}
+
+mod.results <- routes %>%
+  as.data.frame() %>% 
+  mutate(Estimate = betas,
+         Std.Error = ses,
+         Test.Statistic = tstats,
+         P.Value = pvals)
+
+mod.results %>% 
+  mutate(sig = ifelse(P.Value <= 0.01,TRUE,FALSE)) %>% 
+  mutate(positive = ifelse(Estimate > 0, TRUE, FALSE)) %>% 
+  ggplot(aes(x = ., y = log(P.Value),shape = sig))+
+  geom_point(aes(color = positive))
+```
+
+
