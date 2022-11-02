@@ -86,10 +86,16 @@ my_tible <- my_tible %>%
 #HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 newmap <- map %>% 
   st_set_crs("+proj=utm +zone=15 +datum=NAD83  +units=m") %>% 
-  st_transform(crs="+proj=longlat +datum=NAD83") %>% 
-  filter(filter(RouteClass == "CoreLoc"))
+  st_transform(crs="+proj=longlat +datum=NAD83") 
+# %>% 
+#   filter(filter(RouteClass == "CoreLoc"))
 
-writeOGR(newmap, "test_geojson", layer="meuse", driver="GeoJSON")
+class(newmap)
+
+#save as a rda file
+save(newmap, file='newmap.rda')
+
+#writeOGR(newmap, "test_geojson", layer="meuse", driver="GeoJSON")
 
 ```
 
