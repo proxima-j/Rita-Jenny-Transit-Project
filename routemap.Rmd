@@ -83,7 +83,7 @@ my_tible <- my_tible %>%
   st_transform(crs="+proj=longlat +datum=WGS84")
 
 
-#HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 newmap <- map %>% 
   st_set_crs("+proj=utm +zone=15 +datum=NAD83  +units=m") %>% 
   st_transform(crs="+proj=longlat +datum=NAD83") 
@@ -94,6 +94,10 @@ class(newmap)
 
 #save as a rda file
 save(newmap, file='newmap.rda')
+
+#save as shape file for leaflet
+sf::st_write(newmap,"newmap.shp") 
+
 
 #writeOGR(newmap, "test_geojson", layer="meuse", driver="GeoJSON")
 

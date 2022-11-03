@@ -1,0 +1,17 @@
+---
+title: "leaflet"
+author: "Jenny Li"
+date: "2022-11-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+#library and data
+```{r}
+library(rgdal)
+map <- readOGR("newmap.shp")
+```
+
