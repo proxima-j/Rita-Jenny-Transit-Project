@@ -1,5 +1,5 @@
 ---
-title: "Longitudinal Studies of Ridership and Gas Price"
+title: "Regression models trail for Ridership and Gas Price"
 author: "Rita Li"
 date: '2022-10-31'
 output: html_document
@@ -52,7 +52,7 @@ rider_gas_complete <- ridership %>%
   right_join(gas_fixed, by = c("month","year")) %>% 
   ungroup()
   
-
+## I don't know
 rider_gas_complete %>% 
   group_by(Route) %>% 
   mutate(gas_last_month = lag(gas_price, 1),
@@ -69,7 +69,7 @@ rider_gas_complete %>%
   geom_line(aes(y = gas_price/5-1),color = "blue")
 ```
 
-# Fit model
+# failed models
 ```{r}
 ride63 <- rider_gas_complete %>%
   drop_na(riders, date) %>% 
@@ -108,7 +108,7 @@ r <- ride63 %>%
 ```
 
 
-
+### single vairable regression of each bus routes, riders and gas price, visualization of p-values
 ```{r}
 routes <- r$Route %>% unique()
 gasp <- gas$gas_price
@@ -153,4 +153,74 @@ mod.results %>%
   geom_point(aes(color = positive))
 ```
 
+### zscore of ridership and gas price linear regression and prediction visualization
+```{r}
+justed_data <- rider_gas_complete %>% 
+  group_by(Route) %>% 
+  mutate(avg_riders = mean(riders),
+         justed_riders = (riders-avg_riders)/sd(riders)) %>% 
+  mutate(schedules = n()) %>%
+  ungroup() %>% 
+  filter(schedules == 44)
 
+mod.justed <- justed_data %>% 
+  lm(justed_riders ~ gas_price, data = .)
+
+mod.justed %>% summary()
+
+justed_data %>% 
+  mutate(predict = predict(mod.justed),
+         predict_riders = predict * sd(riders) + avg_riders) %>% 
+  filter(Route == 63) %>% 
+  ggplot(aes(x = date, y = riders))+
+  geom_line()+
+  geom_line(aes(y = predict_riders), color = "blue")
+```
+
+### zscore and gas price regression for each bus routes and visualization of p-values.
+```{r}
+routes <- justed_data$Route %>% unique()
+gasp <- gas$gas_price
+
+#gasp[1] <- 0
+
+betas <- c()
+ses <- c()
+tstats <- c()
+pvals <- c()
+
+# loop through all routes
+a <- 0
+
+for(i in routes){
+  rides <- justed_data %>% 
+    filter(Route == i)
+  ride <- rides$justed_riders
+  
+  #fit the linear model
+  mod <- lm(ride ~ gasp)
+  # get coefficient information
+  coefinfo <- tidy(mod)
+  
+  a <- a+1
+  # record estimate, SE, test stat, and p-value
+  betas[a] <- coefinfo$estimate[2]
+  ses[a] <- coefinfo$std.error[2]
+  tstats[a] <- coefinfo$statistic[2]
+  pvals[a] <- coefinfo$p.value[2]
+}
+
+mod.results <- routes %>%
+  as.data.frame() %>% 
+  mutate(Estimate = betas,
+         Std.Error = ses,
+         Test.Statistic = tstats,
+         P.Value = pvals)
+
+mod.results %>% 
+  mutate(sig = ifelse(P.Value <= 0.05,TRUE,FALSE)) %>% 
+  mutate(positive = ifelse(Estimate > 0, TRUE, FALSE)) %>% 
+  ggplot(aes(x = ., y = log(P.Value),shape = sig))+
+  geom_point(aes(color = positive))
+
+```
