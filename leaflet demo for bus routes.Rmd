@@ -12,6 +12,30 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 #library and data
 ```{r}
 library(rgdal)
+library(leaflet)
+library (raster)  
 map <- readOGR("newmap.shp")
+```
+
+#Read file
+```{r}
+class(map)
+length(map)
+extent(map)
+crs(map)
+head(map)
+```
+
+
+# leaflet visualization
+```{r}
+
+map%>% 
+  leaflet() %>%
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+    opacity = 1.0,
+    highlightOptions = highlightOptions(color = "white", weight = 2,
+      bringToFront = TRUE),
+    popup =  paste("Route: ", map$route, "<br>"))
 ```
 
