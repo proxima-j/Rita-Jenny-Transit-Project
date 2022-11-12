@@ -24,13 +24,17 @@ library(broom)
 library(ggplot2)
 library(stringr)
 library(splines)
+library(astsa)
+
 
 ridership<- read_csv("ridershipdata/ridership-route-day-Jan2014-Oct2017.csv")
 
 gas <- read_csv("ridershipdata/Weekly_Minnesota_Regular_Conventional_Retail_Gasoline_Prices.csv", skip = 4)
+
+nbhd <- read_csv("ridershipdata/stops_and_neighborhood.xls - TransitStops_Int_ExportTable.csv")
 ```
 
-
+# prepare gas dataset
 ```{r, warning=FALSE}
 gas_fixed <- gas %>% 
   mutate(date = as.Date(`Week of`, "%m/%d/%Y")) %>% 
@@ -38,7 +42,18 @@ gas_fixed <- gas %>%
   select(date, gas_price) %>% 
   mutate(month = month(date),year = year(date)) %>% 
   group_by(year,month) %>% 
-  summarise(gas_price = mean(gas_price,na.rm = TRUE))
+  summarise(gas_price = mean(gas_price,na.rm = TRUE)) %>% 
+  filter(year > 2013 & year < 2018) %>% 
+  ungroup()
+
+```
+
+# prepare neighborhood dataset
+
+```{r}
+nbhd %>% 
+  mutate(neighborhood = planning_1) %>% 
+  distinct(route, routedscrp, neighborhood, RouteClass)
 ```
 
 # Join Datasets
@@ -47,10 +62,22 @@ rider_gas_complete <- ridership %>%
   mutate(date = as.Date(dtDate)) %>%
   mutate(month = month(date),year = year(date)) %>% 
   group_by(Route,year,month) %>% 
-  summarise(riders = sum(Total_Riders)/1000,RouteType,date = min(date)) %>% 
+  summarise(riders = sum(Total_Riders),RouteType) %>% 
   unique() %>% 
   right_join(gas_fixed, by = c("month","year")) %>% 
   ungroup()
+
+# join data
+routeclass <- nbhd %>% 
+  distinct(route, RouteClass)
+
+coreloc <- rider_gas_complete %>% 
+  right_join(routeclass, by = c("Route" = "route")) %>% 
+  group_by(RouteClass, year, month) %>% 
+  summarise(total_riders = mean(riders)) %>% 
+  filter(RouteClass == "CoreLoc") %>% 
+  mutate(date = year + (month-1)/12)
+  
   
 ## I don't know
 rider_gas_complete %>% 
@@ -74,11 +101,7 @@ rider_gas_complete %>%
 ride63 <- rider_gas_complete %>%
   drop_na(riders, date) %>% 
   mutate(date_num = year + (month-1)/12) %>% 
-  group_by(Route) %>% 
-  mutate(gas_last_month = lag(gas_price, 1),
-         change_from_last_month = gas_price-gas_last_month,
-         per_change = change_from_last_month/gas_last_month,
-         change = ifelse(per_change > 0, TRUE, FALSE)) %>% 
+  count(RouteType)
   ungroup()
 
 lm.season <- lm(riders ~ factor(month), data = ride63)
@@ -106,6 +129,51 @@ r <- ride63 %>%
   ungroup() %>% 
   filter(schedules == max(schedules))
 ```
+#CoreLoc
+
+## timeseries for ridership
+```{r}
+coreloc %>% 
+  mutate(date_num = year + (month-1)/12) %>%
+  ggplot(aes(x = date_num, y = total_riders))+
+  geom_line()
+```
+```{r}
+acf2(na.omit(coreloc$total_riders)) 
+```
+
+```{r}
+AR1 <- sarima(coreloc$total_riders, p = 1, d = 0, q = 0)
+ARMA11 <- sarima(coreloc$total_riders, p = 1, d = 0, q = 1)
+```
+Result from the AR(1) model is not very perfect, which indicates that the change of the ridership of CoreLoc is not only random noise, there is other variables that have effect the ridership.
+
+# time series for gas price
+```{r}
+gas_fixed %>% 
+  mutate(date_num = year + (month-1)/12) %>%
+  ggplot(aes(x = date_num, y = gas_price))+
+  geom_line()
+```
+```{r}
+lm.season <- lm(gas_price ~ factor(month), data = gas_fixed)
+
+gas_fixed %>% 
+  mutate(gas_predict = predict(lm.season)) %>% 
+  mutate(date_num = year + (month-1)/12) %>%
+  ggplot(aes(x = date_num, y = gas_price)) + 
+  geom_line()+
+  geom_line(aes(y = gas_predict),color = "red")
+
+gas_fixed %>% 
+  mutate(gas_predict = predict(lm.season)) %>% 
+  mutate(date_num = year + (month-1)/12)%>%
+  mutate(fixed_gas_price = gas_price-gas_predict) %>% 
+  ggplot(aes(x = date_num, y = fixed_gas_price)) + 
+  geom_line()
+```
+gas price that will used in the final model is fixed gas price which is calculated by "gas_price - gas_predidct".
+
 
 
 ### single vairable regression of each bus routes, riders and gas price, visualization of p-values
