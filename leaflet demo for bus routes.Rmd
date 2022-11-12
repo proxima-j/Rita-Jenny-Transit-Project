@@ -13,8 +13,11 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```{r}
 library(rgdal)
 library(leaflet)
-library (raster)  
-map <- readOGR("newmap.shp")
+library (raster) 
+library(dplyr)
+library(sf)
+map <- readOGR("newmap.shp") %>% 
+  st_as_sf()
 ```
 
 #Read file
@@ -29,13 +32,33 @@ head(map)
 
 # leaflet visualization
 ```{r}
-
-map%>% 
+routesLeaflet <- map %>%
   leaflet() %>%
-  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+  addTiles() %>%
+  addPolylines(
+    color = "#444444",
+    weight = 1,
+    smoothFactor = 0.5,
     opacity = 1.0,
-    highlightOptions = highlightOptions(color = "white", weight = 2,
-      bringToFront = TRUE),
-    popup =  paste("Route: ", map$route, "<br>"))
+    highlightOptions = highlightOptions(
+      color = "white",
+      weight = 2,
+      bringToFront = TRUE
+    ),
+    popup =  paste("Route: ", map$route, "<br>")
+  )
+
+routesLeaflet 
+```
+
+```{r}
+testMap<- sf:: st_as_sf(map)
+testMap <- testMap %>% 
+  filter(route=="10")
+
+testGroup<-map %>% 
+  filter(RouteClass=="CoreLoc")
+
+class(map$route)
 ```
 
