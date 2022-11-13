@@ -69,4 +69,11 @@ testGroup<-map %>%
 
 class(map$route)
 ```
+```{r}
+factpal <- colorFactor(palette="Set2", testGroup$RouteClass)
+
+leaflet(testGroup) %>%
+  addPolylines(color = ~factpal(RouteClass))
+```
+
 

@@ -71,11 +71,13 @@ server <- function(input, output, session) {
   
   #create map
   output$routesLeaflet <- renderLeaflet({
-    
+   
     #make it only showed the route selected
     filtered=filter(map, map$route==input$pick_routes)
     #class filter
     filteredClass=filter(map, map$RouteClass %in%  c(input$classSelect))
+    #set up color
+    factpal <- colorFactor(palette="Set1", filteredClass$RouteClass)
     #setup map
     routesLeaflet<-
       #map%>%
@@ -94,7 +96,7 @@ server <- function(input, output, session) {
         popup =  paste("Route: ", map$route, "<br>")
       ) %>% 
       addPolylines(data = filteredClass,
-                   color = "violet",
+                   color = ~factpal(RouteClass),
                    weight = 1,
                    smoothFactor = 0.5,
                    opacity = 0.5,
