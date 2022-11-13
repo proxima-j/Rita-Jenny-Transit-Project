@@ -16,6 +16,7 @@ library(leaflet)
 library (raster) 
 library(dplyr)
 library(sf)
+library(tidyverse)
 map <- readOGR("newmap.shp") %>% 
   st_as_sf()
 ```
@@ -27,6 +28,13 @@ length(map)
 extent(map)
 crs(map)
 head(map)
+className<- map %>% 
+ distinct(RouteClass) %>% 
+ mutate(dum="1") %>% 
+ pivot_wider(names_from = RouteClass, values_from = dum)
+
+filterTEST<-map %>% 
+  filter(RouteClass %in%  c("CoreLoc"))
 ```
 
 

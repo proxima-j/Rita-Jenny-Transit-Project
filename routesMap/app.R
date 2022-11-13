@@ -1,75 +1,111 @@
 #library
 library(shiny)
+library(shinyWidgets)
 library(rgdal)
 library(leaflet)
 library (raster) 
 library(dplyr)
 library(sf)
-
+library(tidyverse)
 #load data
-map <- readOGR("C:/Users/12235/Documents/stat453/Rita-Jenny-Transit-Project/routesMap/newmap.shp") %>% 
+map <- readOGR("newmap.shp") %>% 
   st_as_sf()
 
-#vector with column names selected from map
-myChoices=names(unique(map[c("RouteClass")]))
+#Class name for checkbox
+className<- map %>% 
+  distinct(RouteClass) %>% 
+  mutate(dum="1") %>% 
+  pivot_wider(names_from = RouteClass, values_from = dum)
+
+mychoice=names(className)
+
+
 ui <- fluidPage(
 
     # Application title
     titlePanel("Twin Cities Metro Route Map"),
 
-
-        # Show a plot of the generated distribution
-        mainPanel(
-          #Dropdown list of routes
-          uiOutput("routes_select"),
-          #Dropdown list of route class
-          uiOutput("classes_select "),
-          
-          #Map
-          leafletOutput("routesLeaflet")
-        )
+    sidebarLayout(
+      sidebarPanel(
+        h4("Please choose route classes to include :"),
+        #Select ALL
+       checkboxInput("all","Select All/None"),
+        #add checkbox group
+        checkboxGroupInput("classSelect","Route Classes",mychoice)
+       
+        # #checkbox list of route class
+        # uiOutput("classes_select "),
+      ),
+      # Show a plot of the generated distribution
+      mainPanel(
+        #Dropdown list of routes
+        uiOutput("routes_select"),
+        
+        
+        #Map
+       leafletOutput("routesLeaflet"),
+        
+      )
+    )
+        
     
 )
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, session) {
+  #update checkbox input
+  observe({
+    updateCheckboxGroupInput(
+      session,"classSelect", choices = mychoice,
+      #if select all is true, then show all the choices, vice versa
+      selected= if(input$all) mychoice
+    )
+  })
   
   #creat routes dropdown list
   output$routes_select <- renderUI({
     #we want the routes name only appears once
     selectInput("pick_routes","choose a route:", choices= c(unique(map$route)))
   })
-  
-  #creat routes dropdown list
-  output$classes_select <- renderUI({
-    #we want the routes name only appears once
-    selectInput("pick_classes","choose a route class:", choices= c(unique(map$RouteClass)))
-  })
 
+  
   #create map
   output$routesLeaflet <- renderLeaflet({
     
     #make it only showed the route selected
     filtered=filter(map, map$route==input$pick_routes)
-    
+    #class filter
+    filteredClass=filter(map, map$RouteClass %in%  c(input$classSelect))
     #setup map
-    routesLeaflet<-filtered %>%
+    routesLeaflet<-
+      #map%>%
       leaflet() %>%
-      addTiles(op) %>%
-      addPolylines(
-        color = "#444444",
-        weight = 1,
+      addTiles() %>%
+      addPolylines(data = filtered,
+        color = "navy",
+        weight = 3,
         smoothFactor = 0.5,
         opacity = 1.0,
         highlightOptions = highlightOptions(
-          color = "blue",
+          color = "cyan",
           weight = 2,
           bringToFront = TRUE
         ),
         popup =  paste("Route: ", map$route, "<br>")
-      )
+      ) %>% 
+      addPolylines(data = filteredClass,
+                   color = "violet",
+                   weight = 1,
+                   smoothFactor = 0.5,
+                   opacity = 0.5,
+                   highlightOptions = highlightOptions(
+                     color = "yellow",
+                     weight = 2,
+                     bringToFront = TRUE
+                   ),
+                   popup =  paste("Route: ", map$route, "<br>"))
 
-
+   
     #call map
     routesLeaflet
   })
