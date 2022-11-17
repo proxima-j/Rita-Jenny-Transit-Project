@@ -8,8 +8,12 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
+# Research Question and Motivation
+We have two research questions, both mainly focusing on the relationship between gas price and ridership. The two research questions are: What is the relationship between gas price and ridership of bus? And how is this relationship different within different types of bus routes? Our motivation for those research questions is due to constantly increasing gas prices in recent years. We are curious how companies,like metro transit, or policy makers would change their strategy to deal with such a situation.
 
-# Load Library and Read in Datasets
+# Data Set Up
+
+## Load Library 
 ```{r,message=FALSE,echo=FALSE,warning=FALSE}
 library(dbplyr)
 library(tidyverse)
@@ -26,18 +30,23 @@ library(stringr)
 library(splines)
 library(astsa)
 
+```
 
+## Datasets Read In and Their Description
+```{r data read in}
+# Ridership data. Ridership our dependent variable in the research question. This dataset on ridership woudl provide us information on the ridership which enables us to build model from it.
 ridership<- read_csv("ridershipdata/ridership-route-day-Jan2014-Oct2017.csv")
 
+# Gas price data. Gas price data is our main independent variable in the research question. This dataset on gas price provide us the trend of gas price which could be compared with the ridership.
 gas <- read_csv("ridershipdata/Weekly_Minnesota_Regular_Conventional_Retail_Gasoline_Prices.csv", skip = 4)
 
+#Routes and neighborhood data. This dataset provide information of transit system. Including the route types route ID and other useful information for comparing their responding ridership.
 nbhd <- read_csv("ridershipdata/stops_and_neighborhood.xls - TransitStops_Int_ExportTable.csv")
 ```
 
-## Dataset Description
-
 ## Prepare Gas Dataset
 ```{r, warning=FALSE}
+# Calculate the mean for gas price in each month each year
 gas_fixed <- gas %>% 
   mutate(date = as.Date(`Week of`, "%m/%d/%Y")) %>% 
   mutate(gas_price = `Weekly Minnesota Regular Conventional Retail Gasoline Prices Dollars per Gallon`) %>% 
@@ -53,12 +62,14 @@ gas_fixed <- gas %>%
 ## Pepare Route Class Dataset
 
 ```{r}
+#Clean the routes data
 routeclass <- nbhd %>% 
   distinct(route, RouteClass)
 ```
 
 ## Join Datasets
 ```{r, fig.width=7,fig.height=3,message=FALSE}
+# Combine the ridership and the gas price
 rider_gas_complete <- ridership %>% 
   mutate(date = as.Date(dtDate)) %>%
   mutate(month = month(date),year = year(date)) %>% 
@@ -69,7 +80,7 @@ rider_gas_complete <- ridership %>%
   ungroup()
 
 
-
+#Mean ridership data for CoreLoc(one of the bus route types)
 coreloc <- rider_gas_complete %>% 
   right_join(routeclass, by = c("Route" = "route")) %>% 
   group_by(RouteClass, year, month) %>% 
@@ -487,3 +498,5 @@ server <- function(input, output, session) {
 shinyApp(ui = ui, server = server)
 
 ```
+
+# Member Contribution
