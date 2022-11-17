@@ -33,14 +33,19 @@ library(astsa)
 ```
 
 ## Datasets Read In and Their Description
+Ridership data. Ridership our dependent variable in the research question. This dataset on ridership woudl provide us information on the ridership which enables us to build model from it.
 ```{r data read in}
-# Ridership data. Ridership our dependent variable in the research question. This dataset on ridership woudl provide us information on the ridership which enables us to build model from it.
 ridership<- read_csv("ridershipdata/ridership-route-day-Jan2014-Oct2017.csv")
+```
 
-# Gas price data. Gas price data is our main independent variable in the research question. This dataset on gas price provide us the trend of gas price which could be compared with the ridership.
+Gas price data. Gas price data is our main independent variable in the research question. This dataset on gas price provide us the trend of gas price which could be compared with the ridership. The data is collected and cleaned by [U.S. Energy Information Administration ](https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMRU_PTE_SMN_DPG&f=W).
+
+```{r gas data}
 gas <- read_csv("ridershipdata/Weekly_Minnesota_Regular_Conventional_Retail_Gasoline_Prices.csv", skip = 4)
+```
 
-#Routes and neighborhood data. This dataset provide information of transit system. Including the route types route ID and other useful information for comparing their responding ridership.
+Routes and neighborhood data. This dataset provide information of transit system. Including the route types route ID and other useful information for comparing their responding ridership.
+```{r}
 nbhd <- read_csv("ridershipdata/stops_and_neighborhood.xls - TransitStops_Int_ExportTable.csv")
 ```
 
@@ -138,6 +143,8 @@ CoreLoc$remove_season <- CoreLoc$total_riders-CoreLoc$ride_predict
 
 lm.ride.season %>% summary()
 ```
+
+#### Visualization of the results from model
 ```{r,fig.height=2,fig.width=4}
 CoreLoc %>% 
   ggplot(aes(x = date, y = total_riders)) + 
@@ -163,7 +170,7 @@ CoreLoc %>%
 acf2(na.omit(CoreLoc$remove_season)) 
 ```
 
-If we take a look at the ACF(auto correlation function) and PACF(partial auto-correlation function) as shown below, we can see that the ACF gradually decays to 0, and the PACF seems to drop to 0 after lag 3. The patterns we observe here match the theoretical pattern of an AR model as the ACF gradually drops to 0 and the PACF seems to drop to 0 after a certain lag. Since the PACF seems to drop to 0 around after lag 2, we decided to fit an AR(3) model for the residuals.
+If we take a look at the ACF(auto correlation function) and PACF(partial auto-correlation function) as shown below, we can see that the ACF gradually decays to 0, and the PACF seems to drop to 0 after lag 3. The patterns we observe here match the theoretical pattern of an AR model as the ACF gradually drops to 0 and the PACF seems to drop to 0 after a certain lag. Since the PACF seems to drop to 0 around after lag 3, we decided to fit an AR(3) model for the residuals.
 
 ```{r}
 AR2 <- sarima(CoreLoc$remove_season, p = 3, d = 0, q = 0)
