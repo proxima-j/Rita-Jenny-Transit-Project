@@ -1,0 +1,13 @@
+name: routesMap
+title: routesMap
+username:
+account: jennylipro
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 7609234
+bundleId: 6509944
+url: https://jennylipro.shinyapps.io/routesMap/
+when: 1668387701.43288
+lastSyncTime: 1668387701.43288
+asMultiple: FALSE
+asStatic: FALSE
