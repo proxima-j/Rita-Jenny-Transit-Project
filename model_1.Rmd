@@ -86,12 +86,15 @@ rider_gas_complete <- ridership %>%
 
 
 #Mean ridership data for CoreLoc(one of the bus route types)
-coreloc <- rider_gas_complete %>% 
+CoreLoc <- rider_gas_complete %>% 
   right_join(routeclass, by = c("Route" = "route")) %>% 
   group_by(RouteClass, year, month) %>% 
-  summarise(total_riders = mean(riders)) %>% 
+  summarise(total_riders = mean(riders),gas_price) %>% 
   filter(RouteClass == "CoreLoc") %>% 
-  mutate(date = year + (month-1)/12)
+  mutate(date = year + (month-1)/12) %>% 
+  drop_na() %>%
+  unique() %>% 
+  ungroup()
 ```
 
 # Models
@@ -123,6 +126,7 @@ CoreLoc %>%
         plot.subtitle = element_text(color = "#006bb3"))
 ```
 
+For the routes catogrized as CoreLoc though the red line representing the gas price is smoother than the black line representing the ridership, the two lines have a similar pattern generally.
 ### Fit factor(month) + gas_price Model for CoreLoc
 ```{r}
 CoreLoc <- rider_gas_complete %>% 
@@ -143,18 +147,20 @@ CoreLoc$remove_season <- CoreLoc$total_riders-CoreLoc$ride_predict
 
 lm.ride.season %>% summary()
 ```
+The p-values are small enough combining with few significant p-values indicating that there might exist some correlation between ridership and gas price.
 
 #### Visualization of the results from model
 ```{r,fig.height=2,fig.width=4}
 CoreLoc %>% 
   ggplot(aes(x = date, y = total_riders)) + 
   geom_line()+
-  geom_line(aes(y = ride_predict),color = "blue",alpha = 0.3)+
+  geom_line(aes(y = CoreLoc$ride_predict),color = "blue",alpha = 0.3)+
   theme_minimal()+
   labs(title = "Time series of ridership of CoreLoc",
        x = "Date(numeric)",
        y = "Total Riders")
 ```
+The predicted ridership of CoreLoc from the regression model is very similar to the observations. Thus, we are confident to state that our model is working well. 
 
 ### Timeseries for CoreLoc Ridership
 
@@ -165,7 +171,7 @@ CoreLoc %>%
   geom_line()+
   theme_minimal()
 ```
-
+The residual plot of time series would explain with other evaluaiton later in this session.
 ```{r}
 acf2(na.omit(CoreLoc$remove_season)) 
 ```
@@ -507,3 +513,4 @@ shinyApp(ui = ui, server = server)
 ```
 
 # Member Contribution
+Jenny: debuging +paper works
