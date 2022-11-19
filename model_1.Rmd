@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+
 ```
 # Research Question and Motivation
 We have two research questions, both mainly focusing on the relationship between gas price and ridership. The two research questions are: What is the relationship between gas price and ridership of bus? And how is this relationship different within different types of bus routes? Our motivation for those research questions is due to constantly increasing gas prices in recent years. We are curious how companies,like metro transit, or policy makers would change their strategy to deal with such a situation.
@@ -22,14 +23,13 @@ library(readr)
 # for geeM studies
 library(geeM)
 library(tidyr)
-
 library(dplyr)
 library(broom)
 library(ggplot2)
 library(stringr)
 library(splines)
 library(astsa)
-
+theme_set(theme_minimal()) 
 ```
 
 ## Datasets Read In and Their Description
@@ -127,7 +127,9 @@ CoreLoc %>%
 ```
 
 For the routes catogrized as CoreLoc though the red line representing the gas price is smoother than the black line representing the ridership, the two lines have a similar pattern generally.
+
 ### Fit factor(month) + gas_price Model for CoreLoc
+
 ```{r}
 CoreLoc <- rider_gas_complete %>% 
   right_join(routeclass, by = c("Route" = "route")) %>% 
@@ -160,6 +162,7 @@ CoreLoc %>%
        x = "Date(numeric)",
        y = "Total Riders")
 ```
+
 The predicted ridership of CoreLoc from the regression model is very similar to the observations. Thus, we are confident to state that our model is working well. 
 
 ### Timeseries for CoreLoc Ridership
@@ -171,7 +174,9 @@ CoreLoc %>%
   geom_line()+
   theme_minimal()
 ```
+
 The residual plot of time series would explain with other evaluaiton later in this session.
+
 ```{r}
 acf2(na.omit(CoreLoc$remove_season)) 
 ```
@@ -181,10 +186,23 @@ If we take a look at the ACF(auto correlation function) and PACF(partial auto-co
 ```{r}
 AR2 <- sarima(CoreLoc$remove_season, p = 3, d = 0, q = 0)
 ```
+
 We think our model does a decent job at estimating our data as the ACF of residuals are fairly small, and the p-values for Ljung-Box test are fairly large, which implies our residuals are independent. 
 
-
 ## CommExpress
+```{r}
+#Mean ridership data for CommExpress(one of the bus route types)
+CommExpress <- rider_gas_complete %>% 
+  right_join(routeclass, by = c("Route" = "route")) %>% 
+  group_by(RouteClass, year, month) %>% 
+  summarise(total_riders = mean(riders),gas_price) %>% 
+  filter(RouteClass == "CommExpress") %>% 
+  mutate(date = year + (month-1)/12) %>% 
+  drop_na() %>% 
+  unique() %>% 
+  ungroup()
+```
+
 
 ### Visualization
 ```{r, fig.width=7,fig.height=3,message=FALSE}
@@ -212,17 +230,9 @@ CommExpress %>%
         plot.subtitle = element_text(color = "#006bb3"))
 ```
 
+For CommonExpress routes the relationship between ridership and gas price is very similar to the one between CoreLoc and gas price. However, for CommonExpress the gap between ridership and gas price is larger.
 ### Fit factor(month) + gas_price Model for CommExpress
 ```{r}
-CommExpress <- rider_gas_complete %>% 
-  right_join(routeclass, by = c("Route" = "route")) %>% 
-  group_by(RouteClass, year, month) %>% 
-  summarise(total_riders = mean(riders),gas_price) %>% 
-  filter(RouteClass == "CommExpress") %>% 
-  mutate(date = year + (month-1)/12) %>% 
-  drop_na() %>% 
-  unique() %>% 
-  ungroup()
 
 lm.ride.season <- lm(total_riders ~ factor(month) + gas_price, data = CommExpress)
 
@@ -232,15 +242,24 @@ CommExpress$remove_season <- CommExpress$total_riders-CommExpress$ride_predict
 
 lm.ride.season %>% summary()
 ```
-
-
+Same as CoreLoc, the p-values for CommonExpress are small enough combining with few significant p-values indicating that there might exist some correlation between ridership and gas price.
 
 ## Other Models
+```{r}
+#Mean ridership data for all bus routes
+r <- rider_gas_complete %>% 
+  right_join(routeclass, by = c("Route" = "route")) %>% 
+  group_by(RouteClass, year, month,Route) %>% 
+  summarise(total_riders = mean(riders),gas_price) %>% 
+  mutate(date = year + (month-1)/12) %>% 
+  drop_na() %>% 
+  unique() %>% 
+  ungroup()
+```
 
 ### Single Vairable Regression of Each Bus Routes, Riders and Gas Price, Visualization of P-values
 ```{r}
 routes <- r$Route %>% unique()
-gasp <- gas$gas_price
 
 betas <- c()
 ses <- c()
@@ -251,9 +270,10 @@ pvals <- c()
 a <- 0
 
 for(i in routes){
-  rides <- r %>% 
+  rides <- r%>% 
     filter(Route == i)
-  ride <- rides$riders
+  gasp <- rides$gas_price
+  ride <- rides$total_riders
   
   #fit the linear model
   mod <- lm(ride ~ gasp)
@@ -278,14 +298,17 @@ mod.results <- routes %>%
 mod.results %>% 
   mutate(sig = ifelse(P.Value <= 0.01,TRUE,FALSE)) %>% 
   mutate(positive = ifelse(Estimate > 0, TRUE, FALSE)) %>% 
-  ggplot(aes(x = ., y = log(P.Value),shape = sig))+
+  ggplot(aes(x = ., y = log(P.Value, base=10),shape = sig))+
   geom_point(aes(color = positive))
 ```
+
+Mostly are true positive and we can see that the p-value is relatively small for the false prediction.
 
 ### Z-score of Ridership and Gas Price Linear Regression and Prediction Visualization
 ```{r}
 justed_data <- rider_gas_complete %>% 
   group_by(Route) %>% 
+  #z-score normalizaiton
   mutate(avg_riders = mean(riders),
          justed_riders = (riders-avg_riders)/sd(riders)) %>% 
   mutate(schedules = n()) %>%
@@ -306,8 +329,44 @@ justed_data %>%
   geom_line(aes(y = predict_riders), color = "blue")
 ```
 
+We consider the prediction works well in this model.
+
+## Failed Models
+```{r, eval=FALSE}
+ride63 <- rider_gas_complete %>%
+  drop_na(riders, date) %>% 
+  mutate(date_num = year + (month-1)/12) %>% 
+  count(RouteType)
+  ungroup()
+
+lm.season <- lm(riders ~ factor(month), data = ride63)
+
+ride63%>% 
+  filter(Route == 84|Route == 63) %>% 
+  ggplot(aes(x = date, y = riders, color = factor(Route))) + 
+  geom_line()+
+  geom_line(aes(y = gas_price*100),color = "black")
+
+
+lm(riders ~ gas_price+factor(Route), data = ride63) %>% 
+  summary()
+
+ride63 %>% 
+  geem(riders ~ gas_price, data = ., id = Route, corstr = "ar1") %>% 
+  summary()
+
+gas <- ride63 %>% 
+  filter(Route == 63)
+
+r <- ride63 %>% 
+  group_by(Route) %>% 
+  mutate(schedules = n()) %>%
+  ungroup() %>% 
+  filter(schedules == max(schedules))
+```
+
 ### Z-score and Gas Price Regression for Each Bus Routes and Visualization of P-values.
-```{r}
+```{r,eval=FALSE}
 routes <- justed_data$Route %>% unique()
 gasp <- gas$gas_price
 
@@ -352,40 +411,6 @@ mod.results %>%
   ggplot(aes(x = ., y = log(P.Value),shape = sig))+
   geom_point(aes(color = positive))
 
-```
-
-## Failed Models
-```{r, eval=FALSE}
-ride63 <- rider_gas_complete %>%
-  drop_na(riders, date) %>% 
-  mutate(date_num = year + (month-1)/12) %>% 
-  count(RouteType)
-  ungroup()
-
-lm.season <- lm(riders ~ factor(month), data = ride63)
-
-ride63%>% 
-  filter(Route == 84|Route == 63) %>% 
-  ggplot(aes(x = date, y = riders, color = factor(Route))) + 
-  geom_line()+
-  geom_line(aes(y = gas_price*100),color = "black")
-
-
-lm(riders ~ gas_price+factor(Route), data = ride63) %>% 
-  summary()
-
-ride63 %>% 
-  geem(riders ~ gas_price, data = ., id = Route, corstr = "ar1") %>% 
-  summary()
-
-gas <- ride63 %>% 
-  filter(Route == 63)
-
-r <- ride63 %>% 
-  group_by(Route) %>% 
-  mutate(schedules = n()) %>%
-  ungroup() %>% 
-  filter(schedules == max(schedules))
 ```
 
 # Visualization
@@ -513,4 +538,16 @@ shinyApp(ui = ui, server = server)
 ```
 
 # Member Contribution
-Jenny: debuging +paper works
+Rita:
+
+* Generate the models
+* Creating the Time Series
+* Evaluate and test the model
+* Clean and set up datasets
+
+Jenny:
+
+* Generate Shiny App for visualization and set up its dataset
+* Creates the outlines
+* Generating the narrative and description
+*  Check and debug the code if needed
