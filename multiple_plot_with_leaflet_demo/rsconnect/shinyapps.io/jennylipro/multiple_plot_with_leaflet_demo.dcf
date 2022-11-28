@@ -1,0 +1,14 @@
+name: multiple_plot_with_leaflet_demo
+title: multiple_plot_with_leaflet_demo
+username:
+account: jennylipro
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 7744762
+bundleId: 6561051
+url: https://jennylipro.shinyapps.io/multiple_plot_with_leaflet_demo/
+when: 1669610944.28175
+lastSyncTime: 1669610944.28176
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: newmap.rda|ridership_linegraph_test.Rmd

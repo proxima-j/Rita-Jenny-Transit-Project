@@ -1,0 +1,71 @@
+---
+title: "ridership line graph test"
+author: "Jenny Li"
+date: "2022-11-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dbplyr)
+library(tidyverse)
+library(lubridate)
+library(readr)
+# for geeM studies
+library(geeM)
+library(tidyr)
+library(dplyr)
+library(broom)
+library(ggplot2)
+library(stringr)
+library(splines)
+library(astsa)
+theme_set(theme_minimal()) 
+ridership<- read_csv("rider_gas_complete.csv")
+```
+
+```{r}
+route <- ridership %>% 
+filter(Route == "2") 
+
+route %>% 
+  ggplot(aes(x = date))+
+  geom_line(aes(y = riders/coef-1),color = "#3F4345")+ 
+  scale_y_continuous(
+    name = NULL,
+    sec.axis = sec_axis(trans = ~.*coef-1))+
+  labs(title = "Rides of Selected Routes Over Time",
+       subtitle = "From Jan 2014 to Oct 2017")+
+  geom_text(aes(x = 2017.5, y = 2.85), label = "Riders",color = "#3F4345",size = 5)+
+  theme_minimal()+
+  theme(axis.text.y.left =element_blank(),
+        axis.title.y.right = element_text(color = "#3F4345",size = 12),
+    
+        axis.text.y.right = element_text(color = "#3F4345",size = 8),
+        axis.title.x.bottom = element_blank(),
+        plot.title = element_text(color = "#006bb3",size = 14),
+        plot.subtitle = element_text(color = "#006bb3"))
+```
+```{r}
+#gas price
+route %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = gas_price), color = "#9F2C2C") +
+  scale_y_continuous(name = NULL,) +
+  scale_x_continuous(name = NULL,) +
+  labs(title = "Gas Price Over Time",
+       subtitle = "From Jan 2014 to Oct 2017") +
+  geom_text(
+    aes(x = 2017, y = 2.85),
+    label = "Gas Price",
+    color = "#9F2C2C",
+    size = 5
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(color = "#006bb3", size = 14),
+    plot.subtitle = element_text(color = "#006bb3")
+  )
+```
+
+
