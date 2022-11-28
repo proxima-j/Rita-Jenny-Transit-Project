@@ -1,0 +1,24 @@
+---
+title: "data clean"
+author: "Jenny Li"
+date: "2022-11-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(dplyr)
+library(tidyr)
+ 
+data<-read.csv("data_full_with_tempreture.csv") %>% 
+  mutate(DateTime= TIME) %>% 
+  separate(TIME,c("Date","Time"), sep = " ")
+
+
+#data$Data <- strptime(as.character(data$Date.yyyy.MM.dd.))
+```
+
