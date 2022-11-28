@@ -57,7 +57,6 @@ server <- function(input, output) {
       scale_y_continuous(name = NULL,)+
       labs(title = "Rides of Selected Routes Over Time",
            subtitle = "From Jan 2014 to Oct 2017")+
-      geom_text(aes(x = 2017.5, y = 2.85), label = "Riders",color = "#3F4345",size = 5)+
       theme_minimal()+
       theme(
         axis.title.y.left  = element_text(color = "#3F4345",size = 12),
@@ -75,12 +74,6 @@ server <- function(input, output) {
       scale_x_continuous(name = NULL,) +
       labs(title = "Gas Price Over Time",
            subtitle = "From Jan 2014 to Oct 2017") +
-      geom_text(
-        aes(x = 2017, y = 2.85),
-        label = "Gas Price",
-        color = "#9F2C2C",
-        size = 4
-      ) +
       theme_minimal() +
       theme(
         plot.title = element_text(color = "#006bb3", size = 14),
