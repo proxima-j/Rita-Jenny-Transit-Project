@@ -52,23 +52,20 @@ server <- function(input, output) {
     filter(map, map$RouteClass %in%  c(input$classSelect))
   })
   output$ridership_plot <- renderPlot({
-     
     ggplot(filtere_rider(),aes(x = date))+
-      geom_line(aes(y = riders/coef-1),color = "#3F4345")+ 
-      scale_y_continuous(
-        name = NULL,
-        sec.axis = sec_axis(trans = ~.*coef-1))+
+      geom_line(aes(y = riders),color = "#3F4345")+ 
+      scale_y_continuous(name = NULL,)+
       labs(title = "Rides of Selected Routes Over Time",
            subtitle = "From Jan 2014 to Oct 2017")+
-      geom_text(aes(x = 2017.5, y = 2.85), label = "Riders",color = "#3F4345",size = 4)+
+      geom_text(aes(x = 2017.5, y = 2.85), label = "Riders",color = "#3F4345",size = 5)+
       theme_minimal()+
-      theme(axis.text.y.left =element_blank(),
-            axis.title.y.right = element_text(color = "#3F4345",size = 12),
-            
-            axis.text.y.right = element_text(color = "#3F4345",size = 8),
-            axis.title.x.bottom = element_blank(),
-            plot.title = element_text(color = "#006bb3",size = 14),
-            plot.subtitle = element_text(color = "#006bb3"))
+      theme(
+        axis.title.y.left  = element_text(color = "#3F4345",size = 12),
+        
+        axis.text.y.left = element_text(color = "#3F4345",size = 8),
+        axis.title.x.bottom = element_blank(),
+        plot.title = element_text(color = "#006bb3",size = 14),
+        plot.subtitle = element_text(color = "#006bb3"))
   })
   output$gas_price_plot <- renderPlot({
   

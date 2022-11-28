@@ -25,6 +25,7 @@ ridership<- read_csv("rider_gas_complete.csv")
 ```
 
 ```{r}
+coef=4000
 route <- ridership %>% 
 filter(Route == "2") 
 
@@ -46,6 +47,28 @@ route %>%
         plot.title = element_text(color = "#006bb3",size = 14),
         plot.subtitle = element_text(color = "#006bb3"))
 ```
+```{r}
+#without coefficient
+route <- ridership %>% 
+filter(Route == "2") 
+
+route %>% 
+  ggplot(aes(x = date))+
+  geom_line(aes(y = riders),color = "#3F4345")+ 
+  scale_y_continuous(name = NULL,)+
+  labs(title = "Rides of Selected Routes Over Time",
+       subtitle = "From Jan 2014 to Oct 2017")+
+  geom_text(aes(x = 2017.5, y = 2.85), label = "Riders",color = "#3F4345",size = 5)+
+  theme_minimal()+
+  theme(
+        axis.title.y.left  = element_text(color = "#3F4345",size = 12),
+    
+        axis.text.y.left = element_text(color = "#3F4345",size = 8),
+        axis.title.x.bottom = element_blank(),
+        plot.title = element_text(color = "#006bb3",size = 14),
+        plot.subtitle = element_text(color = "#006bb3"))
+```
+
 ```{r}
 #gas price
 route %>%
