@@ -8,10 +8,12 @@ library (raster)
 library(dplyr)
 library(sf)
 library(tidyverse)
+library(plotly)
 #load data
 map <- readOGR("newmap.shp") %>%
   st_as_sf()
-ridership<- read_csv("rider_gas_complete.csv")
+ridership<- read_csv("single_route.csv")
+
 # Define UI for application that draws a histogram
 ui <- dashboardPage( skin="purple",
   dashboardHeader(title = "Gas Price and Ridership"),
@@ -20,16 +22,38 @@ ui <- dashboardPage( skin="purple",
       menuItem("Single Route", tabName = "Single_Route", icon = icon("car")),
       menuItem("Route Class", tabName = "Route_Class", icon = icon("road"))
     )),
-  dashboardBody(#Add tab Item
+  dashboardBody(
+    #Add tab Item
     tabItems(
       tabItem("Single_Route",
-              box(leafletOutput("routesLeaflet"), width = 8),
-              # drop down list(add interactivity):set ID, add lable feature, a vector with possible choices
-              box(
-                selectInput("pick_routes", "choose a route:", choices = c(unique(map$route))), width = 4
+              fluidRow(
+                box(leafletOutput("routesLeaflet"), width = 8),
+                # drop down list(add interactivity):set ID, add lable feature, a vector with possible choices
+                box(
+                  selectInput("pick_routes", "choose a route:",
+                              choices = c(unique(ridership$Route))),
+                  width = 4
+                ),
+                #radio button
+                box(
+                  radioButtons(
+                    "rider_data_pick",
+                    "Choice of Daily Riders",
+                    choices = c(
+                      "Daily Riders and Gas Price",
+                      "Daily Riders(removed seasonality) and Gas Price"
+                    ),
+                    selected = "Daily Riders and Gas Price"
+                    
+                  ),
+                  width = 4
+                )
               ),
-              box(plotOutput("ridership_plot"), width = 6, length= 4),
-              box(plotOutput("gas_price_plot"), width = 6, length= 4)),
+     
+             
+              
+              box(plotlyOutput("ridership_plot"), width = 10)),
+             # box(plotOutput("gas_price_plot"), width = 6, length= 4)),
       tabItem("cars",
               fluidPage(h1("Cars"),
                         # add data table item
@@ -40,7 +64,8 @@ ui <- dashboardPage( skin="purple",
 )
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output,session) {
+  
   filtered <- reactive({
     filter(map, map$route == input$pick_routes)
   })
@@ -49,37 +74,55 @@ server <- function(input, output) {
       filter(Route == input$pick_routes)
   })
   filteredClass<- reactive({
-    filter(map, map$RouteClass %in%  c(input$classSelect))
+    filter(ridership, ridership$RouteClass %in%  c(input$classSelect))
   })
-  output$ridership_plot <- renderPlot({
-    ggplot(filtere_rider(),aes(x = date))+
-      geom_line(aes(y = riders),color = "#3F4345")+ 
-      scale_y_continuous(name = NULL,)+
+
+  output$ridership_plot <- renderPlotly({
+    #response to the button
+    if(input$rider_data_pick=="Daily Riders and Gas Price")
+    {rider_line <- filtere_rider()$`Daily Riders and Gas Price Line Plot`
+     Riders=filtere_rider()$`Daily Riders`}
+    if(input$rider_data_pick== "Daily Riders(removed seasonality) and Gas Price")
+    {rider_line <- filtere_rider()$`norm_de_sea`
+      Riders=filtere_rider()$`Daily Riders(removed seasonality)`}
+    #line plot
+    ridership_ggplot <- ggplot(filtere_rider(), aes(x = date)) +
+      geom_line(aes(y = gas_price, label=Date), color = "#9F2C2C") +
+      geom_line(aes(y = rider_line, label = Rider ), color = "#3F4345") +
+      #scale_y_continuous(name = NULL,)+
+      scale_y_continuous(name = "Gas Price($)",
+                         sec.axis = sec_axis(trans = ~ ., name = "Total Riders(thousands)")) +
       labs(title = "Rides of Selected Routes Over Time",
-           subtitle = "From Jan 2014 to Oct 2017")+
-      theme_minimal()+
-      theme(
-        axis.title.y.left  = element_text(color = "#3F4345",size = 12),
-        
-        axis.text.y.left = element_text(color = "#3F4345",size = 8),
-        axis.title.x.bottom = element_blank(),
-        plot.title = element_text(color = "#006bb3",size = 14),
-        plot.subtitle = element_text(color = "#006bb3"))
-  })
-  output$gas_price_plot <- renderPlot({
-  
-    ggplot(filtere_rider(),aes(x = date)) +
-      geom_line(aes(y = gas_price), color = "#9F2C2C") +
-      scale_y_continuous(name = NULL,) +
-      scale_x_continuous(name = NULL,) +
-      labs(title = "Gas Price Over Time",
            subtitle = "From Jan 2014 to Oct 2017") +
+      #geom_text(aes(x = date("2016-06-01"), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
+      #geom_text(aes(x = date("2016-06-01"), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
       theme_minimal() +
       theme(
+        axis.title.y.left  = element_text(color = "#3F4345", size = 12),
+        
+        axis.text.y.left = element_text(color = "#3F4345", size = 8),
+        axis.title.x.bottom = element_blank(),
         plot.title = element_text(color = "#006bb3", size = 14),
         plot.subtitle = element_text(color = "#006bb3")
       )
+    ggplotly(ridership_ggplot, tooltip = c("label")) %>% 
+      layout(hovermode = "x unified")
+    
   })
+  # output$gas_price_plot <- renderPlot({
+  # 
+  #   ggplot(filtere_rider(),aes(x = date)) +
+  #     geom_line(aes(y = gas_price), color = "#9F2C2C") +
+  #     scale_y_continuous(name = NULL,) +
+  #     scale_x_continuous(name = NULL,) +
+  #     labs(title = "Gas Price Over Time",
+  #          subtitle = "From Jan 2014 to Oct 2017") +
+  #     theme_minimal() +
+  #     theme(
+  #       plot.title = element_text(color = "#006bb3", size = 14),
+  #       plot.subtitle = element_text(color = "#006bb3")
+  #     )
+  # })
   #create map
   output$routesLeaflet <- renderLeaflet({
     #setup map
