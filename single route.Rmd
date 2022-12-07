@@ -1,0 +1,399 @@
+---
+title: "dataset for single route"
+author: "Rita Li"
+date: '2022-12-02'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,message=FALSE,echo=FALSE,warning=FALSE}
+library(dbplyr)
+library(tidyverse)
+library(lubridate)
+library(readr)
+library(tidyr)
+
+library(dplyr)
+library(broom)
+library(ggplot2)
+library(stringr)
+library(splines)
+library(astsa)
+
+library(rjson)
+library(geojsonsf)
+library(sf)
+library(rgdal)
+
+library(zoo)
+```
+
+```{r}
+## Original ridership dataset
+ridership<- read_csv("ridershipdata/ridership-route-day-Jan2014-Oct2017.csv") %>% 
+  mutate(date = as.Date(dtDate)) %>% 
+  select(Route, date, Total_Riders, Schedule, SumOfTrips)
+
+## ridership of 10 highest riders routes from 2008 to 2019, combined to previous dataset later
+high_route_ridership <- read_csv("high_route_ridership.csv")
+
+## weekly gas dataset
+gas <- read_csv("ridershipdata/Weekly_Minnesota_Regular_Conventional_Retail_Gasoline_Prices.csv", skip = 4) %>% 
+  mutate(date = as.Date(`Week of`, "%m/%d/%Y")) %>% 
+  mutate(gas_price = `Weekly Minnesota Regular Conventional Retail Gasoline Prices Dollars per Gallon`) %>% 
+  select(date, gas_price) %>% 
+  mutate(month = month(date),year = year(date)) %>% 
+  group_by(year,month) %>% 
+  summarise(gas_price = mean(gas_price,na.rm = TRUE)) %>% 
+  ungroup()
+
+## filter the ridership data to all routes that are also in the shapefile(still working in 2022)
+map <- geojson_sf("shapedata/TransitRoutes.json",expand_geometries = TRUE)
+
+RouteClass <- map$RouteClass
+RRoute <- map$route
+dscp <- map$routedscrp
+
+routeclass <- cbind(RouteClass, RRoute, dscp) %>% 
+  as.data.frame() %>% 
+  mutate(route = as.numeric(RRoute))
+
+## 69 routes are in both ridership dataset and shapefile, 64 of them have at least two year data
+```
+
+```{r, fig.width=7,fig.height=3,message=FALSE}
+# Combine the ridership and the gas price
+rider_gas_complete <- ridership %>%
+  full_join(high_route_ridership, by = c("Route" = "route","date")) %>% 
+  inner_join(routeclass, by = c("Route" = "route")) %>%
+  mutate(Total_Riders = ifelse(is.na(Total_Riders), rides, Total_Riders),
+         month = month(date),year = year(date),
+         weekday = ifelse(Schedule == "Weekday",1,0)) %>% 
+  group_by(Route,year,month) %>% 
+  mutate(wd =  sum(weekday),wd2 = n()) %>% 
+  summarise(riders = sum(Total_Riders,na.rm = TRUE),
+            date = min(date),
+            wd,wd2) %>% 
+  ungroup() %>% 
+  unique() %>% 
+  inner_join(routeclass, by = c("Route" = "route")) %>%
+  mutate(NumOfWdays = ifelse(RouteClass == "CoreLoc", wd2, wd),
+         avg_riders = riders/NumOfWdays) %>% 
+  left_join(gas, by = c("month","year")) %>% 
+  ungroup() %>% 
+  group_by(Route) %>% 
+  mutate(n = n()) %>%
+  ungroup() %>% 
+  filter(n >= 24)
+
+rider_gas_complete %>% 
+  filter(RouteClass == "CoreLoc") %>% 
+  count(year,month,NumOfWdays)
+
+# write_csv(rider_gas_complete, file = "ridershipdata/rider_gas_single_route.csv")
+```
+
+
+```{r}
+rider_gas_complete <- read_csv("ridershipdata/rider_gas_single_route.csv")
+
+
+# missing value for LRT(901 & 902) at Sept 2015 and Oct 2016, replaced with rolling mean
+rider_gas_complete <- rider_gas_complete %>% 
+  mutate(previous = lag(riders, n = 1L),
+         nextt = lead(riders, n = 1L),
+         riders = ifelse(riders == 0, (previous+nextt)/2,riders)) %>% 
+  select(-previous, -nextt) %>% 
+  mutate(previous = lag(avg_riders, n = 1L),
+         nextt = lead(avg_riders, n = 1L),
+         avg_riders = ifelse(avg_riders == 0, (previous+nextt)/2,avg_riders)) %>% 
+  select(-previous, -nextt) %>% 
+  filter(!(Route == 888 & date > "2015-06-30"))
+  
+  rider_gas_complete %>% 
+    filter(RouteClass == "CoreLoc") %>% 
+    count(Route)
+```
+
+
+
+```{r}
+routes <- rider_gas_complete$Route %>% 
+  unique()
+
+de_season <- data.frame()
+
+for(i in routes){
+  rides <- rider_gas_complete %>% 
+    filter(Route == i)
+  # ride <- rides$riders
+  
+  #fit the linear model
+  mod <- lm(riders ~ factor(month), na.action=na.exclude, data = rides)
+  # get coefficient information
+  coefinfo <- tidy(mod)
+  
+  pre_riders <- rides %>% 
+    mutate(prediction = predict(mod),
+           riders = ifelse(is.na(riders), prediction, riders),
+           remove_seasonality = riders - prediction) %>% 
+    select(Route, year, month, prediction, remove_seasonality)
+  
+  # binding dataset
+  de_season <- rbind(de_season, pre_riders)
+  
+  # a <- a+1
+  # # record estimate, SE, test stat, and p-value
+  # betas[a] <- coefinfo$estimate[2]
+  # ses[a] <- coefinfo$std.error[2]
+  # tstats[a] <- coefinfo$statistic[2]
+  # pvals[a] <- coefinfo$p.value[2]
+  # cors[a]<- cor(rides$riders, rides$gas_price)
+}
+
+de_season %>% 
+  # filter(remove_seasonality < -200000) %>%
+  filter(Route<900) %>% 
+  mutate(date = paste(year,month,"01",sep="/")) %>% 
+  ggplot(aes(x = date, y = remove_seasonality, group = Route)) +
+  geom_line(aes(color = Route))
+```
+
+```{r}
+de_season1<- data.frame()
+
+for(i in routes){
+  rides <- rider_gas_complete %>% 
+    filter(Route == i)
+  # ride <- rides$riders
+  
+  #fit the linear model
+  mod <- lm(avg_riders ~ factor(month), na.action=na.exclude, data = rides)
+  # get coefficient information
+  coefinfo <- tidy(mod)
+  
+  pre_riders <- rides %>% 
+    mutate(prediction = predict(mod),
+           riders = ifelse(is.na(riders), prediction, riders),
+           remove_seasonality = avg_riders - prediction) %>% 
+    select(Route, year, month, prediction, remove_seasonality)
+  
+  # binding dataset
+  de_season1 <- rbind(de_season1, pre_riders)
+  
+  # a <- a+1
+  # # record estimate, SE, test stat, and p-value
+  # betas[a] <- coefinfo$estimate[2]
+  # ses[a] <- coefinfo$std.error[2]
+  # tstats[a] <- coefinfo$statistic[2]
+  # pvals[a] <- coefinfo$p.value[2]
+  # cors[a]<- cor(rides$riders, rides$gas_price)
+}
+
+de_season1 %>% 
+  # filter(remove_seasonality < -200000) %>%
+  filter(Route<900) %>% 
+  mutate(date = paste(year,month,"01",sep="/")) %>% 
+  ggplot(aes(x = date, y = remove_seasonality, group = Route)) +
+  geom_line(aes(color = Route))
+```
+
+```{r}
+# for graph: norm_de_sea: normalized remove-season daily riders, use `remove_seasonality` for label/pop-up;
+# norm_avg_riders: normalized original daily riders, use `avg_riders` for label/pop-up
+
+
+rider_gas_complete <- rider_gas_complete %>% 
+  left_join(de_season1, by = c("Route", "year","month")) %>% 
+  #normalize de_season
+  group_by(Route) %>% 
+  mutate(meann = mean(remove_seasonality),
+         norm_de_sea = (remove_seasonality-meann)/sd(remove_seasonality)/2+1) %>% 
+  mutate(meann = mean(riders),
+         norm_avg_riders = (riders-meann)/sd(riders)/2.5+1.5) %>%
+  select(-meann,-wd,-wd2, -prediction,-NumOfWdays,-RRoute,-n) %>% 
+  ungroup()
+
+final_single_route <- rider_gas_complete %>% 
+  mutate(`Date` = paste0(month.abb[month]," ", year,"\nGas Price: ", gas_price),
+         `Daily Riders`= round(avg_riders, 0),
+         `Daily Riders(removed seasonality)` = round(remove_seasonality,0)) %>% 
+  mutate(`Daily Riders and Gas Price Line Plot` = norm_avg_riders,
+         `Daily Riders(removed seasonality) and Gas Price Line Plot` = norm_de_sea)
+
+write_csv(final_single_route, file = "multiple_plot_with_leaflet_demo/single_route.csv")
+```
+
+
+```{r}
+rider_gas_complete %>% 
+  left_join(de_season, by = c("Route", "year","month")) %>% 
+  
+  #normalize de_season
+  group_by(Route) %>% 
+  mutate(meann = mean(remove_seasonality),
+         norm_de_sea = (remove_seasonality-meann)/sd(remove_seasonality)/2+1) %>% 
+  # filter(Route == 114) %>% 
+  filter(year > 2014 & year < 2018) %>% 
+  filter(RouteClass == "CoreLoc") %>% 
+  ggplot(aes(x = date))+
+  geom_line(aes(y = gas_price),color = "#9F2C2C")+
+  # geom_line(aes(y = remove_seasonality/coef),color = "#3F4345")+ 
+  geom_line(aes(y = norm_de_sea, group = Route, color = Route))+
+  scale_y_continuous(
+    name = "Gas Price($)",
+    sec.axis = sec_axis(trans = ~., name="Total Riders(thousands)"))+
+  labs(title = "Change of Gas Price and Total Rides of Route 63 over time",
+       subtitle = "From Jan 2014 to Oct 2017")+
+  geom_text(aes(x = date("2017-06-01"), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
+  geom_text(aes(x = date("2017-06-01"), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
+  theme_minimal()+
+  theme(axis.title.y.left = element_text(color = "#9F2C2C",size = 12),
+        axis.title.y.right = element_text(color = "#3F4345",size = 12),
+        axis.text.y.left = element_text(color = "#9F2C2C",size = 8),
+        axis.text.y.right = element_text(color = "#3F4345",size = 8),
+        axis.title.x.bottom = element_blank(),
+        plot.title = element_text(color = "#006bb3",size = 14),
+        plot.subtitle = element_text(color = "#006bb3"))
+
+rider_gas_complete %>% 
+  left_join(de_season1, by = c("Route", "year","month")) %>% 
+  #normalize de_season
+  group_by(Route) %>% 
+  mutate(meann = mean(remove_seasonality),
+         norm_de_sea = (remove_seasonality-meann)/sd(remove_seasonality)/2+1) %>% 
+  # filter(Route == 114) %>% 
+  filter(year > 2014 & year < 2018) %>% 
+  filter(RouteClass == "CoreLoc") %>% 
+  ggplot(aes(x = date))+
+  geom_line(aes(y = gas_price),color = "#9F2C2C")+
+  # geom_line(aes(y = remove_seasonality/coef),color = "#3F4345")+ 
+  geom_line(aes(y = norm_de_sea, group = Route, color = Route))+
+  scale_y_continuous(
+    name = "Gas Price($)",
+    sec.axis = sec_axis(trans = ~., name="Total Riders(thousands)"))+
+  labs(title = "Change of Gas Price and Total Rides of Route 63 over time",
+       subtitle = "From Jan 2014 to Oct 2017")+
+  geom_text(aes(x = date("2017-06-01"), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
+  geom_text(aes(x = date("2017-06-01"), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
+  theme_minimal()+
+  theme(axis.title.y.left = element_text(color = "#9F2C2C",size = 12),
+        axis.title.y.right = element_text(color = "#3F4345",size = 12),
+        axis.text.y.left = element_text(color = "#9F2C2C",size = 8),
+        axis.text.y.right = element_text(color = "#3F4345",size = 8),
+        axis.title.x.bottom = element_blank(),
+        plot.title = element_text(color = "#006bb3",size = 14),
+        plot.subtitle = element_text(color = "#006bb3"))
+```
+
+
+```{r}
+rider_gas_complete <- read_csv("finaldatasets/single_route.csv")
+
+GRAPH1 <- rider_gas_complete %>% 
+  ungroup() %>% 
+  mutate(`Date` = paste0(month.abb[month]," ", year,"\nGas Price: ", gas_price),
+         `Daily Riders`= round(avg_riders, 0)) %>% 
+  filter(Route == 63) %>% 
+  ggplot(aes(x = date))+
+  geom_line(aes(y = gas_price,label = `Date`),color = "#9F2C2C")+
+  geom_line(aes(y = norm_de_sea, label = `Daily Riders`))+
+  scale_y_continuous(
+    name = "Gas Price($)",
+    sec.axis = sec_axis(trans = ~
+                          \., name="Total Riders(thousands)"))+
+  labs(title = "Change of Gas Price and Total Rides of Route 63 over time",
+       subtitle = "From Jan 2014 to Oct 2017")+
+  geom_text(aes(x = date("2017-06-01"), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
+  geom_text(aes(x = date("2017-06-01"), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
+  theme_minimal()+
+  theme(axis.title.y.left = element_text(color = "#9F2C2C",size = 12),
+        axis.title.y.right = element_text(color = "#3F4345",size = 12),
+        axis.text.y.left = element_text(color = "#9F2C2C",size = 8),
+        axis.text.y.right = element_text(color = "#3F4345",size = 8),
+        axis.title.x.bottom = element_blank(),
+        plot.title = element_text(color = "#006bb3",size = 14),
+        plot.subtitle = element_text(color = "#006bb3"))
+
+# library(plotly)
+
+ggplotly(GRAPH1, tooltip = c("label")) %>% 
+   layout(hovermode = "x unified")
+```
+
+
+
+
+rider_gas_complete %>% 
+  # left_join(de_season, by = c("Route", "year","month")) %>% 
+  #normalize de_season
+  group_by(Route) %>% 
+  mutate(meann = mean(riders),
+         norm_de_sea = (riders-meann)/sd(riders)/2+1) %>% 
+  # filter(Route == 114) %>% 
+  filter(year > 2014 & year < 2018) %>% 
+  # filter(RouteClass == "CommExpress") %>% 
+  ggplot(aes(x = date))+
+  geom_line(aes(y = gas_price),color = "#9F2C2C")+
+  # geom_line(aes(y = remove_seasonality/coef),color = "#3F4345")+ 
+  geom_line(aes(y = norm_de_sea, group = Route, color = Route))+
+  scale_y_continuous(
+    name = "Gas Price($)",
+    sec.axis = sec_axis(trans = ~.*coef, name="Total Riders(thousands)"))+
+  labs(title = "Change of Gas Price and Total Rides of Route 63 over time",
+       subtitle = "From Jan 2014 to Oct 2017")+
+  geom_text(aes(x = date("2017-06-01"), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
+  geom_text(aes(x = date("2017-06-01"), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
+  theme_minimal()+
+  theme(axis.title.y.left = element_text(color = "#9F2C2C",size = 12),
+        axis.title.y.right = element_text(color = "#3F4345",size = 12),
+        axis.text.y.left = element_text(color = "#9F2C2C",size = 8),
+        axis.text.y.right = element_text(color = "#3F4345",size = 8),
+        axis.title.x.bottom = element_blank(),
+        plot.title = element_text(color = "#006bb3",size = 14),
+        plot.subtitle = element_text(color = "#006bb3"))+
+  facet_wrap(~RouteClass)
+
+rider_gas_complete %>% 
+  # left_join(de_season, by = c("Route", "year","month")) %>% 
+  #normalize de_season
+  group_by(Route) %>% 
+  mutate(meann = mean(avg_riders),
+         norm_de_sea = (avg_riders-meann)/sd(avg_riders)/2+1) %>% 
+  # filter(Route == 114) %>% 
+  filter(year > 2014 & year < 2018) %>% 
+  # filter(RouteClass == "CommExpress") %>% 
+  ggplot(aes(x = date))+
+  geom_line(aes(y = gas_price),color = "#9F2C2C")+
+  # geom_line(aes(y = remove_seasonality/coef),color = "#3F4345")+ 
+  geom_line(aes(y = norm_de_sea, group = Route, color = Route))+
+  scale_y_continuous(
+    name = "Gas Price($)",
+    sec.axis = sec_axis(trans = ~., name="Total Riders(thousands)"))+
+  labs(title = "Change of Gas Price and Total Rides of Route 63 over time",
+       subtitle = "From Jan 2014 to Oct 2017")+
+  geom_text(aes(x = date("2017-06-01"), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
+  geom_text(aes(x = date("2017-06-01"), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
+  theme_minimal()+
+  theme(axis.title.y.left = element_text(color = "#9F2C2C",size = 12),
+        axis.title.y.right = element_text(color = "#3F4345",size = 12),
+        axis.text.y.left = element_text(color = "#9F2C2C",size = 8),
+        axis.text.y.right = element_text(color = "#3F4345",size = 8),
+        axis.title.x.bottom = element_blank(),
+        plot.title = element_text(color = "#006bb3",size = 14),
+        plot.subtitle = element_text(color = "#006bb3"))+
+  facet_wrap(~RouteClass)
+```
+
+
+```{r}
+rider_gas_complete %>% 
+  filter(RouteClass == "CommExpress") %>% 
+  ggplot(aes(x = date, y = NumOfWdays*3,group = Route))+
+  geom_line()+
+  geom_line(aes(y = riders/1000), color = "blue")
+```
+
