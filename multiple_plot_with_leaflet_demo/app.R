@@ -33,6 +33,7 @@ ui <- dashboardPage( skin="purple",
                 box(
                   selectInput("pick_routes", "choose a route:",
                               choices = c(unique(ridership$Route))),
+                  textOutput("descrp"),
                   width = 4
                 ),
                 #radio button
@@ -50,6 +51,7 @@ ui <- dashboardPage( skin="purple",
                   width = 4
                 )
               ),
+              
      
              
               
@@ -76,6 +78,10 @@ server <- function(input, output,session) {
   })
   filteredClass<- reactive({
     filter(ridership, ridership$RouteClass %in%  c(input$classSelect))
+  })
+  
+  output$descrp <- renderText({
+    paste("Route Description:    ",filtere_rider()$dscp %>% unique(),sep = "\n")
   })
 
   output$ridership_plot <- renderPlotly({
