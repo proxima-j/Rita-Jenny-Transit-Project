@@ -88,7 +88,7 @@ server <- function(input, output,session) {
     #line plot
     ridership_ggplot <- ggplot(filtere_rider(), aes(x = date)) +
       geom_line(aes(y = gas_price, label=Date), color = "#9F2C2C") +
-      geom_line(aes(y = rider_line, label = Rider ), color = "#3F4345") +
+      geom_line(aes(y = rider_line, label = Riders ), color = "#3F4345") +
       #scale_y_continuous(name = NULL,)+
       scale_y_continuous(name = "Gas Price($)",
                          sec.axis = sec_axis(trans = ~ ., name = "Total Riders(thousands)")) +
