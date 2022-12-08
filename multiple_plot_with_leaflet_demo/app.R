@@ -9,6 +9,7 @@ library(dplyr)
 library(sf)
 library(tidyverse)
 library(plotly)
+library(lubridate)
 #load data
 map <- readOGR("newmap.shp") %>%
   st_as_sf()
@@ -89,22 +90,21 @@ server <- function(input, output,session) {
     ridership_ggplot <- ggplot(filtere_rider(), aes(x = date)) +
       geom_line(aes(y = gas_price, label=Date), color = "#9F2C2C") +
       geom_line(aes(y = rider_line, label = Riders ), color = "#3F4345") +
-      #scale_y_continuous(name = NULL,)+
       scale_y_continuous(name = "Gas Price($)",
                          sec.axis = sec_axis(trans = ~ ., name = "Total Riders(thousands)")) +
-      labs(title = "Rides of Selected Routes Over Time",
+      labs(title = "Riders of Selected Routes Over Time",
            subtitle = "From Jan 2014 to Oct 2017") +
-      #geom_text(aes(x = date("2016-06-01"), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
-      #geom_text(aes(x = date("2016-06-01"), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
+      geom_text(aes(x = max(date), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
+      geom_text(aes(x = max(date), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
       theme_minimal() +
       theme(
-        axis.title.y.left  = element_text(color = "#3F4345", size = 12),
-        
-        axis.text.y.left = element_text(color = "#3F4345", size = 8),
+        axis.title.y = element_text(color = "#9F2C2C",size = 12),
+        axis.text.y= element_text(color = "#9F2C2C",size = 8),
         axis.title.x.bottom = element_blank(),
-        plot.title = element_text(color = "#006bb3", size = 14),
+        plot.title = element_text(color = "#006bb3",size = 14),
         plot.subtitle = element_text(color = "#006bb3")
       )
+    
     ggplotly(ridership_ggplot, tooltip = c("label")) %>% 
       layout(hovermode = "x unified")
     
