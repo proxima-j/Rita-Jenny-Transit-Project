@@ -26,7 +26,7 @@ ui <- dashboardPage( skin="purple",
   dashboardBody(
     #Add tab Item
     tabItems(
-      tabItem("Single_Route",
+    tabItem("Single_Route",
               fluidRow(
                 box(leafletOutput("routesLeaflet"), width = 8),
                 # drop down list(add interactivity):set ID, add lable feature, a vector with possible choices
@@ -46,21 +46,33 @@ ui <- dashboardPage( skin="purple",
                       "Daily Riders(removed seasonality) and Gas Price"
                     ),
                     selected = "Daily Riders and Gas Price"
-                    
                   ),
                   width = 4
                 )
-              ),
-              
-     
-             
-              
+            ),
+
+
               box(plotlyOutput("ridership_plot"), width = 10)),
              # box(plotOutput("gas_price_plot"), width = 6, length= 4)),
-      tabItem("cars",
-              fluidPage(h1("Cars"),
+      tabItem("Route_Class",
+              fluidRow(
+                box(leafletOutput("classLeaflet"), width = 8),
                         # add data table item
-                        dataTableOutput("carstable")
+                       box(
+                         radioButtons(
+                           "class_data_pick",
+                           "Choice of Route Class",
+                           choices = c(
+                             "CoreLoc",
+                             "CommExpress",
+                             "SuburbLoc",
+                             "LRT",
+                             "SupportLoc"
+                           ),
+                           selected = "CoreLoc"
+                         ),
+                         width = 4
+                       )
               ))
      
     ))
@@ -72,12 +84,16 @@ server <- function(input, output,session) {
   filtered <- reactive({
     filter(map, map$route == input$pick_routes)
   })
+  filtered_route_map <- reactive({
+    filter(map, map$RouteClass == input$class_data_pick)
+  })
   filtere_rider <- reactive({
     ridership %>%
       filter(Route == input$pick_routes)
   })
+  
   filteredClass<- reactive({
-    filter(ridership, ridership$RouteClass %in%  c(input$classSelect))
+    filter(ridership, ridership$RouteClass == input$class_data_pick)
   })
   
   output$descrp <- renderText({
@@ -100,8 +116,8 @@ server <- function(input, output,session) {
                          sec.axis = sec_axis(trans = ~ ., name = "Total Riders(thousands)")) +
       labs(title = "Riders of Selected Routes Over Time",
            subtitle = "From Jan 2014 to Oct 2017") +
-      geom_text(aes(x = max(date), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
-      geom_text(aes(x = max(date), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
+      geom_text(aes(x = max(date), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 2.5)+
+      geom_text(aes(x = max(date), y = 1.7), label = "Total Riders",color = "#3F4345",size = 2.5)+
       theme_minimal() +
       theme(
         axis.title.y = element_text(color = "#9F2C2C",size = 12),
@@ -115,6 +131,10 @@ server <- function(input, output,session) {
       layout(hovermode = "x unified")
     
   })
+  # output$ridership_plot <- renderPlotly({
+  #   #response to the route class button
+  #  
+  # })
   # output$gas_price_plot <- renderPlot({
   # 
   #   ggplot(filtere_rider(),aes(x = date)) +
@@ -129,7 +149,6 @@ server <- function(input, output,session) {
   #       plot.subtitle = element_text(color = "#006bb3")
   #     )
   # })
-  #create map
   output$routesLeaflet <- renderLeaflet({
     #setup map
     routesLeaflet <-
@@ -152,6 +171,29 @@ server <- function(input, output,session) {
       )
     #call map
     routesLeaflet
+  })
+  output$classLeaflet <- renderLeaflet({
+    #setup map
+    classLeaflet <-
+      #map%>%
+      leaflet() %>%
+      addProviderTiles("CartoDB.Positron",
+                       options = providerTileOptions(opacity = 0.8)) %>%
+      addPolylines(
+        data =  filtered_route_map(),
+        weight = 1,
+        smoothFactor = 0.5,
+        opacity = 0.5,
+        highlightOptions = highlightOptions(
+          color = "yellow",
+          weight = 2,
+          bringToFront = TRUE
+        ),
+        popup =  paste("Route: ", map$route, "<br>")
+      )
+    
+    #call map
+    classLeaflet
   })
   #render the car table, just put in the data name
   output$carstable <- renderDataTable(mtcars)
