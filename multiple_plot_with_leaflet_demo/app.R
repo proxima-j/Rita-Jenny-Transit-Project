@@ -10,10 +10,13 @@ library(sf)
 library(tidyverse)
 library(plotly)
 library(lubridate)
+
 #load data
 map <- readOGR("newmap.shp") %>%
   st_as_sf()
 ridership<- read_csv("single_route.csv")
+mutilple_route<- read_csv("mutilple_route.csv")
+prediction_coef<- read_csv("prediction.csv")
 
 # Define UI for application that draws a histogram
 ui <- dashboardPage( skin="purple",
@@ -72,7 +75,10 @@ ui <- dashboardPage( skin="purple",
                            selected = "CoreLoc"
                          ),
                          width = 4
-                       )
+                       ),
+                box(dataTableOutput("prediction_coefficient")),
+                box(plotlyOutput("prediction_plot"), width = 10)
+                
               ))
      
     ))
@@ -93,7 +99,7 @@ server <- function(input, output,session) {
   })
   
   filteredClass<- reactive({
-    filter(ridership, ridership$RouteClass == input$class_data_pick)
+    filter(mutilple_route, mutilple_route$RouteClass == input$class_data_pick)
   })
   
   output$descrp <- renderText({
@@ -149,6 +155,33 @@ server <- function(input, output,session) {
   #       plot.subtitle = element_text(color = "#006bb3")
   #     )
   # })
+  #data table
+  output$prediction_coefficient <- renderDataTable({
+    datatable(prediction_coef,extensions = "Buttons", options = list(dom="Blfrtip", button=c("copy","pdf")))
+  })
+  output$prediction_plot <- renderPlotly({
+    #line plot
+    prediction_plot <- ggplot(filteredClass(), aes(x = date)) +
+      geom_line(aes(y = monthly_riders), color = "#9F2C2C") +
+      geom_line(aes(y = prediction), color = "#3F4345") +
+      # scale_y_continuous(name = "Gas Price($)",
+      #                    sec.axis = sec_axis(trans = ~ ., name = "Total Riders(thousands)")) +
+      labs(title = "Riders of Selected Routes Over Time",
+           subtitle = "From Jan 2014 to Oct 2017") +
+      theme_minimal() +
+      theme(
+        axis.title.y = element_text(color = "#9F2C2C", size = 12),
+        axis.text.y = element_text(color = "#9F2C2C", size = 8),
+        axis.title.x.bottom = element_blank(),
+        plot.title = element_text(color = "#006bb3", size = 14),
+        plot.subtitle = element_text(color = "#006bb3")
+      )
+    
+    ggplotly(prediction_plot) %>%
+      layout(hovermode = "x unified")
+    
+  })
+  
   output$routesLeaflet <- renderLeaflet({
     #setup map
     routesLeaflet <-
