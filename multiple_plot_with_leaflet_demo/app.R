@@ -197,8 +197,7 @@ ui <- dashboardPage(
                 If you are interested in further exploring this project here is the link to the",
                 tags$a(href="https://github.com/proxima-j/Rita-Jenny-Transit-Project.git", "project repository"),
                 ", which includes our code and datasets. The readme file has clear instructions for users, 
-                you could follow those as needed.", style = "font-family: 'times'; font-si22pt"),
-              tags$a("Single Routes Graphs", onclick = "openTab('Single_Route')", href="#"),
+                you could follow those as needed.", style = "font-family: 'times'; font-si22pt")
               )
       
     ))
