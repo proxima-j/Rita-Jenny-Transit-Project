@@ -5,10 +5,10 @@ account: jennylipro
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 7744762
-bundleId: 6639081
+bundleId: 6642451
 url: https://jennylipro.shinyapps.io/multiple_plot_with_leaflet_demo/
-when: 1671083008.43047
-lastSyncTime: 1671083008.43048
+when: 1671154815.24362
+lastSyncTime: 1671154815.24363
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: newmap.rda|ridership_linegraph_test.Rmd

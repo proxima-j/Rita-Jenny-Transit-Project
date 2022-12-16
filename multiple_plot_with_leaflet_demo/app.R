@@ -109,10 +109,17 @@ ui <- dashboardPage(
               tags$li("What is the relationship between gas prices and bus ridership?", style = "color:blue"), 
               tags$li("How does this relationship differ among different types of bus routes?", style = "color:blue"), 
               h2("Dataset Introduction", style = "font-family: 'times'; font-si20pt"),
-              p("In this project, we originally used four datasets: one for the leaflet, 
-              one for weekly gas prices, one for ridership data covering almost all routes between 2014 and 2017, 
+              p("In this project, we originally used four datasets: one for the leaflet from", 
+               
+              tags$a("'St Paul Open Information' website,", href="https://information.stpaul.gov/datasets/stpaul::district-councils/explore?location=44.962263%2C-93.033812%2C11.92"),
+              "one for weekly gas prices from", 
+              tags$a(href="https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPMRU_PTE_SMN_DPG&f=W", 
+                     "U.S. Energy Information Administration"),
+              ", one for ridership data covering almost all routes between 2014 and 2017 from Metro Transit, 
               and finally, 
-                one for long-term ridership data called 'Highroute' with 10 routes. 
+                one for long-term ridership data called 'Highroute' with 10 routes from",
+              tags$a(href="https://www.kaggle.com/datasets/andrewosman/metro-transit-ridership-and-economic-data?select=high_route_ridership.csv", 
+                                                      "Kaggle"),". 
                 We renamed the leaflet dataset to 'newmap' and used it to create visualizations in a leaflet. 
                 The gas price dataset was aggregated at the monthly level, and we calculated the average price for 
                 each month, including a three-month moving average. Then we combined this gas price data with the 
