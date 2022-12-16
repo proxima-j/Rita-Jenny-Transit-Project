@@ -409,13 +409,7 @@ for(i in routes){
   cors[a]<- cor(rides$riders, rides$gas_price)
 }
 
-mod.results <- routes %>%
-  as.data.frame() %>% 
-  mutate(Estimate = betas,
-         Std.Error = ses,
-         Test.Statistic = tstats,
-         P.Value = pvals,
-         CorCoe = cors)
+\
 
 classes <- rider_gas_complete %>% 
   distinct(Route, RouteClass)

@@ -144,14 +144,6 @@ for(i in routes){
   
   # binding dataset
   de_season <- rbind(de_season, pre_riders)
-  
-  # a <- a+1
-  # # record estimate, SE, test stat, and p-value
-  # betas[a] <- coefinfo$estimate[2]
-  # ses[a] <- coefinfo$std.error[2]
-  # tstats[a] <- coefinfo$statistic[2]
-  # pvals[a] <- coefinfo$p.value[2]
-  # cors[a]<- cor(rides$riders, rides$gas_price)
 }
 
 de_season %>% 
@@ -303,8 +295,7 @@ GRAPH1 <- rider_gas_complete %>%
   geom_line(aes(y = norm_de_sea, label = `Daily Riders`))+
   scale_y_continuous(
     name = "Gas Price($)",
-    sec.axis = sec_axis(trans = ~
-                          \., name="Total Riders(thousands)"))+
+    sec.axis = sec_axis(trans = ~., name="Total Riders(thousands)"))+
   labs(title = "Change of Gas Price and Total Rides of Route 63 over time",
        subtitle = "From Jan 2014 to Oct 2017")+
   geom_text(aes(x = date("2017-06-01"), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
@@ -320,13 +311,23 @@ GRAPH1 <- rider_gas_complete %>%
 
 # library(plotly)
 
+ay <- list(
+      tickfont = list(size=11.7),
+      titlefont=list(size=14.6),
+      overlaying = "y",
+      nticks = 5,
+      side = "right",
+      title = "Second y axis"
+    )
+
 ggplotly(GRAPH1, tooltip = c("label")) %>% 
-   layout(hovermode = "x unified")
+   layout(hovermode = "x unified",
+          yaxis2 = ay)
 ```
 
 
 
-
+```{r}
 rider_gas_complete %>% 
   # left_join(de_season, by = c("Route", "year","month")) %>% 
   #normalize de_season
@@ -356,6 +357,9 @@ rider_gas_complete %>%
         plot.title = element_text(color = "#006bb3",size = 14),
         plot.subtitle = element_text(color = "#006bb3"))+
   facet_wrap(~RouteClass)
+```
+
+
 
 rider_gas_complete %>% 
   # left_join(de_season, by = c("Route", "year","month")) %>% 
