@@ -275,12 +275,18 @@ for(i in classes){
  
 mod.results <- classes %>%
   as.data.frame() %>% 
-  mutate(Estimate = betas,
+  mutate(Estimate = round(betas,2),
          Std.Error = ses,
          Test.Statistic = tstats,
          P.Value = pvals,
-         intercept = intercept)
+         intercept = round(intercept,2),
+         RouteClass = mod.results$.)
 
+
+mod.results <- mod.results %>% 
+  select(RouteClass,intercept, Estimate,P.Value)
+  
+write_csv(mod.results, file = "multiple_plot_with_leaflet_demo/prediction.csv")
 # resid %>% 
 #   mutate(date = as.Date(paste(year,month,"01",sep="/"))) %>% 
 #   ggplot(aes(x = date, y = residual, group = RouteClass)) +
@@ -291,7 +297,7 @@ ccomplete %>%
   left_join(resid, by = c("year","month","RouteClass")) %>% 
   ggplot(aes(x = date))+
   geom_line(aes(y = monthly_riders))+
-  # geom_line(aes(y = prediction),color = "blue")+
+  geom_line(aes(y = prediction),color = "blue")+
   # geom_line(aes(y = gas_price*mean(monthly_riders)))+
   facet_wrap(~RouteClass,scale = "free_y")
 ```

@@ -93,7 +93,7 @@ rider_gas_complete %>%
   filter(RouteClass == "CoreLoc") %>% 
   count(year,month,NumOfWdays)
 
-# write_csv(rider_gas_complete, file = "ridershipdata/rider_gas_single_route.csv")
+# write_csv(rider_gas_complete, file = "./ridershipdata/rider_gas_single_route.csv")
 ```
 
 
@@ -144,6 +144,14 @@ for(i in routes){
   
   # binding dataset
   de_season <- rbind(de_season, pre_riders)
+  
+  # a <- a+1
+  # # record estimate, SE, test stat, and p-value
+  # betas[a] <- coefinfo$estimate[2]
+  # ses[a] <- coefinfo$std.error[2]
+  # tstats[a] <- coefinfo$statistic[2]
+  # pvals[a] <- coefinfo$p.value[2]
+  # cors[a]<- cor(rides$riders, rides$gas_price)
 }
 
 de_season %>% 
@@ -198,7 +206,7 @@ de_season1 %>%
 # norm_avg_riders: normalized original daily riders, use `avg_riders` for label/pop-up
 
 
-rider_gas_complete <- rider_gas_complete %>% 
+final_single_route <- rider_gas_complete %>% 
   left_join(de_season1, by = c("Route", "year","month")) %>% 
   #normalize de_season
   group_by(Route) %>% 
@@ -206,30 +214,22 @@ rider_gas_complete <- rider_gas_complete %>%
          norm_de_sea = (remove_seasonality-meann)/sd(remove_seasonality)/2+1) %>% 
   mutate(meann = mean(riders),
          norm_avg_riders = (riders-meann)/sd(riders)/2.5+1.5) %>%
-  select(-meann,-wd,-wd2, -prediction,-NumOfWdays,-RRoute,-n) %>% 
-  ungroup()
+  select(-meann,-wd,-wd2, -prediction,-NumOfWdays,-RRoute,-n)
 
-final_single_route <- rider_gas_complete %>% 
-  mutate(`Date` = paste0(month.abb[month]," ", year,"\nGas Price: ", gas_price),
-         `Daily Riders`= round(avg_riders, 0),
-         `Daily Riders(removed seasonality)` = round(remove_seasonality,0)) %>% 
-  mutate(`Daily Riders and Gas Price Line Plot` = norm_avg_riders,
-         `Daily Riders(removed seasonality) and Gas Price Line Plot` = norm_de_sea)
-
-write_csv(final_single_route, file = "multiple_plot_with_leaflet_demo/single_route.csv")
+write_csv(final_single_route, file = "finaldatasets/single_route.csv")
 ```
 
 
 ```{r}
 rider_gas_complete %>% 
   left_join(de_season, by = c("Route", "year","month")) %>% 
-  
   #normalize de_season
   group_by(Route) %>% 
   mutate(meann = mean(remove_seasonality),
-         norm_de_sea = (remove_seasonality-meann)/sd(remove_seasonality)/2+1) %>% 
+         norm_de_sea = (remove_seasonality-meann)/sd(remove_seasonality)/2+1,
+         max_date = max(date)) %>% 
   # filter(Route == 114) %>% 
-  filter(year > 2014 & year < 2018) %>% 
+  # filter(year > 2014 & year < 2018) %>% 
   filter(RouteClass == "CoreLoc") %>% 
   ggplot(aes(x = date))+
   geom_line(aes(y = gas_price),color = "#9F2C2C")+
@@ -240,8 +240,8 @@ rider_gas_complete %>%
     sec.axis = sec_axis(trans = ~., name="Total Riders(thousands)"))+
   labs(title = "Change of Gas Price and Total Rides of Route 63 over time",
        subtitle = "From Jan 2014 to Oct 2017")+
-  geom_text(aes(x = date("2017-06-01"), y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
-  geom_text(aes(x = date("2017-06-01"), y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
+  geom_text(aes(x = max_date, y = 2.4), label = "Gas Price",color = "#9F2C2C",size = 3)+
+  geom_text(aes(x =  max_date, y = 1.7), label = "Total Riders",color = "#3F4345",size = 3)+
   theme_minimal()+
   theme(axis.title.y.left = element_text(color = "#9F2C2C",size = 12),
         axis.title.y.right = element_text(color = "#3F4345",size = 12),
@@ -283,16 +283,19 @@ rider_gas_complete %>%
 
 
 ```{r}
-rider_gas_complete <- read_csv("finaldatasets/single_route.csv")
-
 GRAPH1 <- rider_gas_complete %>% 
-  ungroup() %>% 
-  mutate(`Date` = paste0(month.abb[month]," ", year,"\nGas Price: ", gas_price),
-         `Daily Riders`= round(avg_riders, 0)) %>% 
+  # left_join(de_season, by = c("Route", "year","month")) %>% 
+  #normalize de_season
+  group_by(Route) %>% 
+  mutate(meann = mean(avg_riders),
+         norm_de_sea = (avg_riders-meann)/sd(avg_riders)/2.5+1.5) %>% 
   filter(Route == 63) %>% 
+  # filter(year > 2014 & year < 2018) %>% 
+  # filter(RouteClass == "CoreLoc") %>% 
   ggplot(aes(x = date))+
-  geom_line(aes(y = gas_price,label = `Date`),color = "#9F2C2C")+
-  geom_line(aes(y = norm_de_sea, label = `Daily Riders`))+
+  geom_line(aes(y = gas_price),color = "#9F2C2C")+
+  # geom_line(aes(y = remove_seasonality/coef),color = "#3F4345")+ 
+  geom_line(aes(y = norm_de_sea, group = Route, color = Route))+
   scale_y_continuous(
     name = "Gas Price($)",
     sec.axis = sec_axis(trans = ~., name="Total Riders(thousands)"))+
@@ -309,25 +312,15 @@ GRAPH1 <- rider_gas_complete %>%
         plot.title = element_text(color = "#006bb3",size = 14),
         plot.subtitle = element_text(color = "#006bb3"))
 
-# library(plotly)
+library(plotly)
 
-ay <- list(
-      tickfont = list(size=11.7),
-      titlefont=list(size=14.6),
-      overlaying = "y",
-      nticks = 5,
-      side = "right",
-      title = "Second y axis"
-    )
-
-ggplotly(GRAPH1, tooltip = c("label")) %>% 
-   layout(hovermode = "x unified",
-          yaxis2 = ay)
+ggplotly(GRAPH1, tooltip = c("gas_price","date")) %>% 
+   layout(hovermode = "x unified")
 ```
 
 
 
-```{r}
+
 rider_gas_complete %>% 
   # left_join(de_season, by = c("Route", "year","month")) %>% 
   #normalize de_season
@@ -357,9 +350,6 @@ rider_gas_complete %>%
         plot.title = element_text(color = "#006bb3",size = 14),
         plot.subtitle = element_text(color = "#006bb3"))+
   facet_wrap(~RouteClass)
-```
-
-
 
 rider_gas_complete %>% 
   # left_join(de_season, by = c("Route", "year","month")) %>% 
